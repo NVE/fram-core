@@ -12,11 +12,25 @@ variables:
   PYTHON_VERSION: '3.12'
   ARTIFACT_FEED: 'Modellrammeverk_NG/NVE.Modellrammeverk_NG'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+stages:
+  - stage: BuildPackageStage
+    jobs:
+      - job: BuildPackageJob
+        displayName: 'Build package'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+        steps:
+          - task: UsePythonVersion@0
+            displayName: 'Use Python $(PYTHON_VERSION)'
+            inputs:
+              versionSpec: '$(PYTHON_VERSION)'
+              addToPath: true
+
+          - script: |
+              python -m build
+            displayName: 'Build package'
+
+          # - script: |
+          #     poetry config repositories.azure-feed https://pkgs.dev.azure.com/NVE-devops/Modellrammeverk_NG/_packaging/NVE.Modellrammeverk_NG/pypi/upload/
+          #     poetry config http-basic.azure-feed $(ARTIFACT_FEED_USERNAME) $(ARTIFACT_FEED_PASSWORD)
+          #     poetry publish --repository azure-feed
+          #   displayName: 'Publish package to Azure DevOps Artifacts'
