@@ -18,7 +18,7 @@ steps:
       git remote -v
       git branch
       #git fetch github
-      #git push github main
+      git push nve_github master
     displayName: 'Sync changes to GitHub'
     env:
       GITHUB_PAT: $(GITHUB_PAT)
