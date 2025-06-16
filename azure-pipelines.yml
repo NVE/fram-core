@@ -14,7 +14,8 @@ pool:
 
 steps: 
   - script: |
-      #git remote add nve_github https://github.com/NVE/fram-core.git
+      git remote add nve_github https://github.com/NVE/fram-core.git
+      git remote -v
       git branch
       #git fetch github
       #git push github main
