@@ -2,5 +2,5 @@
 Module that allows to orchestrate data in FRAM.
 
 ## Description
-Coming soon...
+Coming soon..
 
