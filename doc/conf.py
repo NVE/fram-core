@@ -3,26 +3,47 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import sys
+from pathlib import Path
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Example'
-copyright = 'workshop participant'
-author = 'workshop participant'
-release = '0.1'
-
+project = "Model Framework"
+copyright = "2025, NVE"  # noqa: A001
+author = "NVE"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['myst_parser']
+# extensions = [
+#     "sphinx.ext.autodoc",
+#     "sphinx.ext.napoleon",
+#     "sphinx.ext.viewcode",
+#     "sphinx.ext.githubpages",
+# ]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_theme = "sphinx_rtd_theme"
+html_static_path = ["_static"]
+
+# autodoc_default_options = {
+#     "members": True,
+#     "member-order": "bysource",
+#     "special-members": "__init__",
+#     "undoc-members": True,
+#     "exclude-members": "__weakref__",
+# }
+
+# # Konfigurasjon for Napoleon
+# napoleon_google_docstring = True
+# napoleon_numpy_docstring = False
+
+# add_module_names = False
+# modindex_common_prefix = ["src."]
