@@ -54,7 +54,7 @@ class HydroAggregator(Aggregator):
     3a. Aggregate results if all modules in group have results.
         - Production is the sum of production levels with weighted profiles
         - Reservoir filling is the sum of energy reservoir filling levels (filling*energy_equivalent_downstream/agg_energy_equivalent) with weighted profiles
-        - TODO: Spill, bypass and pumping results are currently ignored in the aggregation.
+        - TODO: Water values, spill, bypass and pumping results are currently ignored in the aggregation.
         - TODO: Add possibility to skip results aggregation.
     3b. Make new hydro module and delete original modules from model data.
     4. Add mapping from detailed to aggregated modules to self._aggregation_map.
@@ -62,7 +62,7 @@ class HydroAggregator(Aggregator):
     Disaggregation steps (self._disaggregate):
     1. Restore original modules from self._original_data. NB! Changes to aggregated modules are lost except for results (TODO)
     2. Move production and filling results from aggregated modules to detailed modules, weighted based on production capacity and reservoir capacity.
-        - TODO: Spill and bypass results are currently ignored in the disaggregation.
+        - TODO: Water values, spill, bypass and pumping results are currently ignored in the disaggregation.
     3. Delete aggregated modules.
 
     NB! Watershed that crosses power nodes should not be aggregated in two different HydroAggregators as the aggregator will remove all connected modules

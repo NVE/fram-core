@@ -1,19 +1,20 @@
 [project]
 name = "fram-core"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = ""
 authors = [
     {name = "The Norwegian Water Resources and Energy Directorate", email = "fram@nve.no"}
 ]
 license = "LICENSE.md"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4"
 
 dependencies = [
     "numpy (>=2.2.2)",
     "pandas (>=2.2.3)",
     "numexpr (>=2.10.2)",
     "sympy (>=1.13.3)",
+    "juliacall (>=0.9.28,<0.10.0)",
 ]
 
 [build-system]
