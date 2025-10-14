@@ -16,11 +16,13 @@ class IsoCalendarDay(SinglePeriodTimeIndex):
         """
         IsoCalendarDay represent a day from datetime.fromisocalendar(year, week, day).
 
-        No extrapolation.
+        No extrapolation and is_52_week_years=False. Useful for testing.
 
-        is_52_week_years=False
+        Args:
+            year (int): The ISO year.
+            week (int): The ISO week number (1-53).
+            day (int): The ISO weekday (1=Monday, 7=Sunday).
 
-        Useful for testing.
         """
         super().__init__(
             start_time=datetime.fromisocalendar(year, week, day),

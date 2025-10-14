@@ -27,20 +27,13 @@ class FixedFrequencyTimeIndex(TimeIndex):
         """
         Initialize a FixedFrequencyTimeIndex.
 
-        Parameters
-        ----------
-        start_time : datetime
-            The starting datetime of the time index.
-        period_duration : timedelta
-            The duration of each period.
-        num_periods : int
-            The number of periods in the time index.
-        is_52_week_years : bool
-            Whether to use 52-week years.
-        extrapolate_first_point : bool
-            Whether to allow extrapolation of the first point.
-        extrapolate_last_point : bool
-            Whether to allow extrapolation of the last point.
+        Args:
+            start_time (datetime): The starting datetime of the time index.
+            period_duration (timedelta): The duration of each period.
+            num_periods (int): The number of periods in the time index.
+            is_52_week_years (bool): Whether to use 52-week years.
+            extrapolate_first_point (bool): Whether to allow extrapolation of the first point.
+            extrapolate_last_point (bool): Whether to allow extrapolation of the last point.
 
         """
         if num_periods < 0:
@@ -648,7 +641,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
                 return self._extend_end(input_vector, target_timeindex)
             raise ValueError(
                 (
-                    "Cannot write into fixed frequency: incompatible time indices. " 
+                    "Cannot write into fixed frequency: incompatible time indices. "
                     "'stop_time' of the target index is after the 'stop_time' of the source index "
                     "and 'extrapolate_last_point' is False.\n"
                     f"Input timeindex: {self}\n"

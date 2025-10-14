@@ -180,7 +180,7 @@ def _check_category(category, flow_id, flow_info) -> None:
     pass
 
 
-def get_regional_volumes(
+def get_regional_volumes(  # noqa C901
     db: Model | QueryDB,
     commodity: str,
     node_category: str,
@@ -191,7 +191,25 @@ def get_regional_volumes(
     unit: str,
     is_float32: bool = True,
 ) -> RegionalVolumes:
-    """Calculate aggregated production, consumption, import and export."""
+    """
+    Calculate aggregated production, consumption, import and export for member in node_category.
+
+    Decompose the model components into nodes and flows. Analyze the flows to determine their contribution to production, consumption, import, and export if
+    they are associated with the specified commodity. Group these contributions based on the provided node_category, production_category, and
+    consumption_category metadata.
+
+    Args:
+        db (Model | QueryDB): Model or QueryDB to use
+        commodity (str): Commodity to consider
+        node_category (str): Meta key for node category to group the results by
+        production_category (str): Meta key for production category to group the results by
+        consumption_category (str): Meta key for consumption category to group the results by
+        data_period (SinglePeriodTimeIndex): Consider results for this data period
+        scenario_period (FixedFrequencyTimeIndex): Consider results for this scenario period
+        unit (str): Unit to use for the results
+        is_float32 (bool): Use float32 for calculations and results if True
+
+    """
     db = _load_model_and_create_model_db(db)
 
     if not isinstance(is_float32, bool):

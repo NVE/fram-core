@@ -22,11 +22,20 @@ def _is_member(node: Node, meta_key: str, members: set[str]) -> bool:
     return value in members
 
 
-def isolate_subnodes(model: Model, commodity: str, meta_key: str, members: list[str]) -> None:
+def isolate_subnodes(model: Model, commodity: str, meta_key: str, members: list[str]) -> None:  # noqa: PLR0915, C901
     """
-    Delete nodes of commodity named using meta_key except members and boundary nodes and flows.
+    For components in model, delete all nodes of commodity except member nodes, and their flows and boundary nodes.
 
-    Boudary nodes are set exogenous and all flows pointing to them except boundary flows into or out from member nodes.
+    - Keep member nodes and all flows between them.
+    - Set boundary nodes exogenous and keep boundary flows into or out from member nodes.
+    - Delete all other nodes of commodity and all other flows pointing to them.
+
+    Args:
+        model (Model): Model to modify
+        commodity (str): Commodity of nodes to consider
+        meta_key (str): Meta key to use to identify members
+        members (List[str]): List of meta key values identifying member nodes
+
     """
     t = time()
 

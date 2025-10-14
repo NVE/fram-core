@@ -11,9 +11,17 @@ def get_hydro_downstream_energy_equivalent(
     power_node: str | None = None,
 ) -> Expr:
     """
-    Get the sum downstream energy equivalent for a hydro module.
+    Get the expression for the sum downstream energy equivalent for a hydro module.
 
-    Either count all downstream energy equivalents, or only those that are connected to the given power_node.
+    - If power node is given, only count downstream energy equivalents that are connected to the power node.
+    - Energy equivalents are collected from hydro generators downstream, and the main topology follows the release_to attribute.
+    - Transport pumps are included in the downstream topology, but counted as negative energy equivalents.
+
+    Args:
+        data (dict[str, Component | TimeVector | Curve | Expr]): The dict containing the components.
+        module_name (str): The name of the hydro module to start from.
+        power_node (str): Optional power node to filter energy equivalents.
+
     """
     if data[module_name].get_pump() and data[module_name].get_pump().get_from_module() == module_name:  # transport pump
         pump_power_node = data[module_name].get_pump().get_power_node()
@@ -35,7 +43,16 @@ def get_hydro_downstream_energy_equivalent(
 
 
 def set_global_energy_equivalent(data: dict[str, Component | TimeVector | Curve | Expr], metakey_energy_eq_downstream: str) -> None:
-    """Set the downstream energy equivalent of all HydroModules. Set to 1 for other types of components?."""
+    """
+    Loop though data dict and set the downstream energy equivalent for all HydroModules.
+
+    Send a warning event if a HydroModule has no downstream energy equivalents.
+
+    Args:
+        data (dict[str, Component | TimeVector | Curve | Expr]): The dict containing the components.
+        metakey_energy_eq_downstream (str): The meta key to use for storing the downstream energy equivalent.
+
+    """
     for module_name, module in data.items():
         if isinstance(module, HydroModule) and module.get_reservoir():
             energy_equivalent = get_hydro_downstream_energy_equivalent(data, module_name)

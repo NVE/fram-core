@@ -4,10 +4,16 @@ from framcore.timeindexes.SinglePeriodTimeIndex import SinglePeriodTimeIndex  # 
 
 
 class ModelYear(SinglePeriodTimeIndex):
-    """ModelYear represent one 52-week-year. No extrapolation."""
+    """ModelYear represent a period of 52 weeks starting from the iso calendar week 1 of a specified year. No extrapolation."""
 
     def __init__(self, year: int) -> None:
-        """Represent a specified year. Use 52-week-year starting on monday in week 1. No extrapolation."""
+        """
+        Initialize ModelYear to a period of 52 weeks starting from the iso calendar week 1 of the specified year. No extrapolation.
+
+        Args:
+            year (int): Year to represent.
+
+        """
         super().__init__(
             start_time=datetime.fromisocalendar(year, 1, 1),
             period_duration=timedelta(weeks=52),

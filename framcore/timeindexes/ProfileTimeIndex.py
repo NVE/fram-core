@@ -4,7 +4,7 @@ from framcore.timeindexes.FixedFrequencyTimeIndex import FixedFrequencyTimeIndex
 
 
 class ProfileTimeIndex(FixedFrequencyTimeIndex):
-    """ProfileTimeIndex represent one or more whole years with fixed time resolution standard."""
+    """ProfileTimeIndex represent one or more whole years with fixed time resolution standard. No extrapolation."""
 
     def __init__(
         self,
@@ -13,7 +13,16 @@ class ProfileTimeIndex(FixedFrequencyTimeIndex):
         period_duration: timedelta,
         is_52_week_years: bool,
     ) -> None:
-        """Initialize the ProfileTimeIndex."""
+        """
+        Initialize the ProfileTimeIndex. No extrapolation.
+
+        Args:
+            start_year (int): First year in the index.
+            num_years (int): Number of years in the index.
+            period_duration (timedelta): Duration of each period in the index.
+            is_52_week_years (bool): Whether to use 52-week years. If False, full iso calendar years are used.
+
+        """
         start_time = datetime.fromisocalendar(start_year, 1, 1)
         if not is_52_week_years:
             stop_time = datetime.fromisocalendar(start_year + num_years, 1, 1)

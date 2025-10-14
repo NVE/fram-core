@@ -57,6 +57,7 @@ class TimeIndex(Base, ABC):
 
     @abstractmethod
     def is_whole_years(self) -> bool:
+        """Check if the TimeIndex represents whole years."""
         pass
 
     @abstractmethod

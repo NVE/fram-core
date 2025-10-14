@@ -22,10 +22,20 @@ class ModelDict(dict):
         return super().__setitem__(key, value)
 
 class Model(Base):
-    """Definition of the Model class."""
+    """
+    Model stores the representation of the system with components, timevectors, expression and the aggregators used on the Model.
+
+    Aggregators are added to Model when used (Aggregator.aggregate(model)), and can be undone in LIFO order with disaggregate().
+
+    Methods:
+        get_data(): Get dict of components, timevectors, expressions and curves stored in the model. Can be modified.
+        get_content_counts(): Return number of objects stored in model organized into concepts and types.
+        disaggregate(): Undo all aggregations in LIFO order.
+
+    """
 
     def __init__(self) -> None:
-        """Create a new model instance."""
+        """Create a new model instance with empty data and no aggregators."""
         self._data = ModelDict()
         self._aggregators: list[Aggregator] = []
 

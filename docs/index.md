@@ -5,12 +5,14 @@ Power market models access data through FRAM **core model** - a model object tha
 
 To install only core package, run `pip install fram-core`. But we recommend that you rather start by installing our [simple demo]({{ framlinks.demo }}){:target="_blank"}.
 
-![FRAM core](img/framcore.png)
+![FRAM core](img/framcore.svg)
 
 ## Core model
-The core model object is populated with the data from the database using Populator. Core model represents data as expressions and uses "lazy" approach, i.e. the calculations are not done immediately but are postponed until Expr.evaluate() is called. This approcah gives a much better performance when processing large data quantities. Data processing expressions are saved inside the components of the core model.  
+The core model object is populated with the data from the database using Populator() in [framdata]({{ framlinks.data }}){:target="_blank"} package. Core model components hold data about different components in the power system.
 
-## Core model components
+Core model represents data as expressions and uses "lazy" approach, i.e. the calculations are not done immediately but are postponed until Expr.evaluate() is called. This approach gives a much better performance when processing large data quantities. Data processing expressions are saved inside the components of the core model.  
+
+## Components
 Core model contains **high-level** and **low-level** components.
 
 ### High-level components

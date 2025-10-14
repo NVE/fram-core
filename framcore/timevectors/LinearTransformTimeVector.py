@@ -9,7 +9,7 @@ from framcore.timevectors.TimeVector import TimeVector  # NB! full import path n
 
 
 class LinearTransformTimeVector(TimeVector):
-    """LinearTransformTimeVector(TimeVector). Immutable."""
+    """LinearTransformTimeVector represents a TimeVector as scale * timevector + shift. Immutable."""
 
     def __init__(
         self,
@@ -22,9 +22,26 @@ class LinearTransformTimeVector(TimeVector):
         reference_period: ReferencePeriod | None = None,
     ) -> None:
         """
-        Transform timevector into scale * timevector + shift.
+        Initialize LinearTransformTimeVector with a TimeVector, scale and shift.
 
-        May also override unit, is_max_level,  is_zero_one_profile and reference_period.
+        May also override unit, is_max_level,  is_zero_one_profile and reference_period of the original timevector.
+
+        Args:
+            timevector (TimeVector): TimeVector.
+            scale (float): Scale factor.
+            shift (float): Shift value.
+            unit (str | None): Unit of the values in the transformed vector.
+            is_max_level (bool | None, optional): Whether the transformed vector represents the maximum level,
+                                                  average level given a reference period, or not a level at all.
+                                                  Defaults to None.
+            is_zero_one_profile (bool | None, optional): Whether the transformed vector represents a profile with values
+                                                        between 0 and 1, a profile with values averaging to 1 over a given
+                                                        reference period, or is not a profile. Defaults to None.
+            reference_period (ReferencePeriod | None, optional): Given reference period if the transformed vector
+                                                                 represents average level or mean one profile. Defaults to None.
+
+
+
         """
         self._check_type(timevector, TimeVector)
         self._check_type(scale, float)

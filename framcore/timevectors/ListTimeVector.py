@@ -8,7 +8,7 @@ from framcore.timevectors.TimeVector import TimeVector  # NB! full import path n
 
 
 class ListTimeVector(TimeVector):
-    """ListTimeVector class for TimeVectors with a numpy array of values. Subclass of TimeVector."""
+    """TimeVector with a numpy array of values paired with a timeindex."""
 
     def __init__(
         self,
@@ -37,6 +37,7 @@ class ListTimeVector(TimeVector):
         Raises:
             ValueError: When both is_max_level and is_zero_one_profile is not None. This would mean the TimeVector
                         represents both a level and a profile, which is not allowed.
+            ValueError: When the shape of the vector does not match the number of periods in the timeindex.
 
         """
         if (is_max_level is not None and is_zero_one_profile is not None) or (is_max_level is None and is_zero_one_profile is None):

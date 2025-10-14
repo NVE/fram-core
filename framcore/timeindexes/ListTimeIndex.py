@@ -28,7 +28,19 @@ class ListTimeIndex(TimeIndex):
         extrapolate_first_point: bool,
         extrapolate_last_point: bool,
     ) -> None:
-        """Initialize the ListTimeIndex class."""
+        """
+        Initialize the ListTimeIndex class.
+
+        Args:
+            datetime_list (list[datetime]): List of datetime objects defining the time index. Must be ordered and contain more than one element.
+            is_52_week_years (bool): Whether to use 52-week years. If False, full iso calendar years are used.
+            extrapolate_first_point (bool): Whether to extrapolate the first point.
+            extrapolate_last_point (bool): Whether to extrapolate the last point.
+
+        Raises:
+            ValueError: If datetime_list has less than two elements or is not ordered.
+
+        """
         dts = datetime_list
         if len(dts) <= 1:
             message = f"datetime_list must contain more than one element. Got {datetime_list}"

@@ -96,6 +96,10 @@ class JuliaModel(Base):
         if self._julia_path:  # If Julia path is not set, let JuliaCall handle defaults.
             os.environ["PYTHON_JULIAPKG_EXE"] = str(self._julia_path)
 
+        path = os.environ.get("PATH", "")
+        cleaned = os.pathsep.join(p for p in path.split(os.pathsep) if "julia" not in p.lower())
+        os.environ["PATH"] = cleaned
+
         juliacall = importlib.import_module("juliacall")
         JuliaModel._jl = juliacall.Main
         self._jlpkg = juliacall.Pkg

@@ -4,10 +4,16 @@ from framcore.timeindexes.ListTimeIndex import ListTimeIndex  # NB! full import 
 
 
 class ModelYears(ListTimeIndex):
-    """ModelYears represents a collection of years as a ListTimeIndex."""
+    """ModelYears represents a collection of years as a ListTimeIndex. Extrapolation is enabled and full iso calendar is used."""
 
     def __init__(self, years: list[int]) -> None:
-        """Initialize ModelYears with a list of years."""
+        """
+        Initialize ModelYears with a list of years.
+
+        Args:
+            years (list[int]): List of years to represent.
+
+        """
         datetime_list = [datetime.fromisocalendar(year, 1, 1) for year in years]
         datetime_list.append(datetime.fromisocalendar(years[-1] + 1, 1, 1))
         super().__init__(

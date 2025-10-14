@@ -4,10 +4,15 @@ from framcore.timeindexes.SinglePeriodTimeIndex import SinglePeriodTimeIndex  # 
 
 
 class ConstantTimeIndex(SinglePeriodTimeIndex):
-    """Used in ConstantTimeVector."""
+    """
+    ConstantTimeIndex that is constant over time. For use in ConstantTimeVector.
+
+    Represents a period of 52 weeks starting from the iso calendar week 1 of 1985. Extrapolates both first and last point.
+
+    """
 
     def __init__(self) -> None:
-        """Represent a specified year."""
+        """Initialize ConstantTimeIndex."""
         super().__init__(
             start_time=datetime.fromisocalendar(1985, 1, 1),
             period_duration=timedelta(weeks=52),

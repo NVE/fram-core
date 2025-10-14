@@ -5,7 +5,14 @@ class ReferencePeriod(Base):
     """ReferencePeriod class represents a period of one or more years."""
 
     def __init__(self, start_year: int, num_years: int) -> None:
-        """Initialize a ReferencePeriod with the start year and number of years."""
+        """
+        Initialize a ReferencePeriod with the start year and number of years.
+
+        Args:
+            start_year (int): The first year in the reference period.
+            num_years (int): The number of years in the reference period.
+
+        """
         self._check_type(start_year, int)
         self._check_type(num_years, int)
         if start_year < 0:

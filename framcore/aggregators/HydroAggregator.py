@@ -183,7 +183,7 @@ class HydroAggregator(Aggregator):
             for dd in d:
                 if dd not in self._aggregation_map:
                     self._aggregation_map[dd] = set([a])
-                elif not data[dd].get_reservoir():  # if reservoir module already in map, skip as reservoir mapping is main mapping
+                elif not (data[dd].get_reservoir() and data[a].get_reservoir()):  # reservoir modules can only be mapped to one aggregated reservoir module
                     self._aggregation_map[dd].add(a)
         self.send_debug_event(f"add generator modules to _aggregation_map time: {round(time() - t, 3)} seconds")
 
@@ -503,7 +503,12 @@ class HydroAggregator(Aggregator):
                     rc.set_profile(self._release_capacity_profile)
             generator_energy_eqs = [data[m].get_generator().get_energy_eq() for m in generator_module_names if m not in ignore_capacity]
             release_capacity_levels = [rc.get_level() * ee.get_level() for rc, ee in zip(release_capacities, generator_energy_eqs, strict=True)]
-            release_capacity = MaxFlowVolume(level=sum(release_capacity_levels) / energy_eq, profile=self._release_capacity_profile)
+            if any(rc.get_profile() for rc in release_capacities):
+                one_profile_max = Expr(src=ConstantTimeVector(1.0, is_zero_one_profile=False), is_profile=True)
+                weights = [get_level_value(rcl, model, "MW", self._data_dim, self._scen_dim, is_max=True) for rcl in release_capacity_levels]
+                profiles = [rc.get_profile() if rc.get_profile() else one_profile_max for rc in release_capacities]
+                release_capacity_profile = _aggregate_weighted_expressions(profiles, weights)
+            release_capacity = MaxFlowVolume(level=sum(release_capacity_levels) / energy_eq, profile=release_capacity_profile)
 
             # Inflow level
             upstream_inflow_levels = defaultdict(list)

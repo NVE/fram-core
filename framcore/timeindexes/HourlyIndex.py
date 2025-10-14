@@ -4,7 +4,11 @@ from framcore.timeindexes.ProfileTimeIndex import ProfileTimeIndex  # NB! full i
 
 
 class HourlyIndex(ProfileTimeIndex):
-    """One or more whole years with hourly resolution."""
+    """
+    ProfileTimeIndex with one or more whole years with hourly resolution. Either years with 52 weeks or full iso calendar years.
+
+    No extrapolation inherited from ProfileTimeIndex.
+    """
 
     def __init__(
         self,
@@ -12,7 +16,15 @@ class HourlyIndex(ProfileTimeIndex):
         num_years: int,
         is_52_week_years: bool = True,
     ) -> None:
-        """One or more whole years with hourly resolution."""
+        """
+        Initialize HourlyIndex over a number of years. Either years with 52 weeks or full iso calendar years.
+
+        Args:
+            start_year (int): First year in the index.
+            num_years (int): Number of years in the index.
+            is_52_week_years (bool, optional): Whether to use 52-week years. If False, full iso calendar years are used. Defaults to True.
+
+        """
         super().__init__(
             start_year=start_year,
             num_years=num_years,

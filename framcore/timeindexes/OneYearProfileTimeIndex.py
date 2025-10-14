@@ -4,12 +4,20 @@ from framcore.timeindexes.ProfileTimeIndex import ProfileTimeIndex  # NB! full i
 
 
 class OneYearProfileTimeIndex(ProfileTimeIndex):
-    """Fixed frequency over one year."""
+    """
+    ProfileTimeIndex with fixed frequency over one year of either 52 or 53 weeks. No extrapolation inherited from ProfileTimeIndex.
+
+    Attributes:
+        period_duration (timedelta): Duration of each period.
+        is_52_week_years (bool): Whether to use 52-week years.
+
+    """
 
     def __init__(self, period_duration: timedelta, is_52_week_years: bool) -> None:
         """
-        Initialize a OneYearProfileTimeIndex with a fixed frequency over one year.
+        Initialize a ProfileTimeIndex with a fixed frequency over one year.
 
+        If is_52_week_years is True, the period_duration must divide evenly into 52 weeks. If False, it must divide evenly into 53 weeks.
         We use 1982 for 52-week years and 1981 for 53-week years.
 
         Args:
