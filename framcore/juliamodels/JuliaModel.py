@@ -1,4 +1,4 @@
-"""Manage Julia environment and usage of juliacall."""
+"""Manage Julia environment and usage of juliacall for Solvers implemented in the Julia language."""
 
 import importlib
 import os
@@ -43,14 +43,16 @@ class JuliaModel(Base):
         julia_path: Path | str | None = None,
         dependencies: list[str | tuple[str, str | None]] | None = None,
         skip_install_dependencies: bool = False,
+        force_julia_install: bool = True,
     ) -> None:
         """
         Initialize management of Julia model, environment and dependencies.
 
         The three parameters env_path, depot_path and julia_path sets environment variables for locations of your Julia
         environment, packages and language.
-            - If user has not specified locations, the default is to use the current python/conda environment.
-            - If a system installation of Python is used, the default is set to the current user location.
+
+        - If user has not specified locations, the default is to use the current python/conda environment.
+        - If a system installation of Python is used, the default is set to the current user location.
 
         Args:
             env_path (Path | str | None, optional): Path to location of Julia environment. If it doesnt exist it will be
@@ -61,6 +63,8 @@ class JuliaModel(Base):
                                                       doesnt exist. Defaults to None.
             dependencies (list[str] | None, optional): List of dependencies of the model. The strings in the list can be
                                                        either urls or Julia package names.. Defaults to None.
+            skip_install_dependencies (bool, optional): Skip installation of dependencies. Defaults to False.
+            force_julia_install (bool): Force new Julia install.
 
         """
         self._check_type(env_path, (Path, str, type(None)))
@@ -74,6 +78,7 @@ class JuliaModel(Base):
         self._julia_path = julia_path
         self._dependencies = dependencies if dependencies else []
         self._skip_install_dependencies = skip_install_dependencies
+        self._force_julia_install = force_julia_install
 
         self._jlpkg = None
         self._initialize_julia()
@@ -96,9 +101,10 @@ class JuliaModel(Base):
         if self._julia_path:  # If Julia path is not set, let JuliaCall handle defaults.
             os.environ["PYTHON_JULIAPKG_EXE"] = str(self._julia_path)
 
-        path = os.environ.get("PATH", "")
-        cleaned = os.pathsep.join(p for p in path.split(os.pathsep) if "julia" not in p.lower())
-        os.environ["PATH"] = cleaned
+        if self._force_julia_install:
+            path = os.environ.get("PATH", "")
+            cleaned = os.pathsep.join(p for p in path.split(os.pathsep) if "julia" not in p.lower())
+            os.environ["PATH"] = cleaned
 
         juliacall = importlib.import_module("juliacall")
         JuliaModel._jl = juliacall.Main

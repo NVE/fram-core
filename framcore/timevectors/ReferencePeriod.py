@@ -9,18 +9,21 @@ class ReferencePeriod(Base):
         Initialize a ReferencePeriod with the start year and number of years.
 
         Args:
-            start_year (int): The first year in the reference period.
-            num_years (int): The number of years in the reference period.
+            start_year (int): The first year in the reference period. Must be a positive integer.
+            num_years (int): The number of years in the reference period. Must be a positive non-zero integer.
 
         """
         self._check_type(start_year, int)
         self._check_type(num_years, int)
+
         if start_year < 0:
             message = f"start_year must be a positive integer. Got {start_year}."
             raise ValueError(message)
-        if num_years < 0:
-            message = f"num_years must be a positive integer. Got {num_years}."
+
+        if num_years <= 0:
+            message = f"num_years must be a positive non-zero integer. Got {num_years}."
             raise ValueError(message)
+
         self._start_year = start_year
         self._num_years = num_years
 

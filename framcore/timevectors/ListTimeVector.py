@@ -40,16 +40,10 @@ class ListTimeVector(TimeVector):
             ValueError: When the shape of the vector does not match the number of periods in the timeindex.
 
         """
-        if (is_max_level is not None and is_zero_one_profile is not None) or (is_max_level is None and is_zero_one_profile is None):
-            message = (
-                f"Input arguments for {self}: Must have exactly one 'non-None'"
-                "value for is_max_level and is_zero_one_profile. "
-                "A TimeVector is either a level or a profile."
-            )
-            raise ValueError(message)
-        # assert vector.shape == (timeindex.get_num_periods(),), (
-        #     f"Vector shape {vector.shape} does not match timeindex num_periods {timeindex.get_num_periods()}"
-        # )
+        if vector.shape != (timeindex.get_num_periods(),):
+            msg = f"Vector shape {vector.shape} does not match number of periods {timeindex.get_num_periods()} of timeindex ({timeindex})."
+            raise ValueError(msg)
+
         self._timeindex = timeindex
         self._vector = vector
         self._unit = unit
@@ -57,7 +51,16 @@ class ListTimeVector(TimeVector):
         self._is_max_level = is_max_level
         self._is_zero_one_profile = is_zero_one_profile
 
-    def __eq__(self, other):
+        self._check_type(timeindex, TimeIndex)
+        self._check_type(vector, np.ndarray)
+        self._check_type(unit, (str, type(None)))
+        self._check_type(is_max_level, (bool, type(None)))
+        self._check_type(is_zero_one_profile, (bool, type(None)))
+        self._check_type(reference_period, (ReferencePeriod, type(None)))
+
+        self._check_is_level_or_profile()
+
+    def __eq__(self, other: object) -> None:
         """Check equality between two ListTimeVector objects."""
         if not isinstance(other, ListTimeVector):
             return NotImplemented
@@ -74,9 +77,9 @@ class ListTimeVector(TimeVector):
         """Return hash of ListTimeVector object."""
         return hash((self._timeindex, self._vector.tobytes(), self._unit, self._is_max_level, self._is_zero_one_profile, self._reference_period))
 
-    def __repr__(self) -> str:  # TODO: Also timeindex and reference_period
+    def __repr__(self) -> str:
         """Return the string representation of the ListTimeVector."""
-        return f"ListTimeVector(timeindex={self._timeindex}, vector={self._vector}, unit={self._unit})"
+        return f"ListTimeVector(timeindex={self._timeindex}, vector={self._vector}, unit={self._unit}, reference_period={self._reference_period})"
 
     def get_vector(self, is_float32: bool) -> NDArray:
         """Get the vector of the TimeVector as a numpy array."""

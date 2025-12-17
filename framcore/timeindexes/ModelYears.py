@@ -14,6 +14,9 @@ class ModelYears(ListTimeIndex):
             years (list[int]): List of years to represent.
 
         """
+        if not years:
+            raise ValueError("At least one year must be provided.")
+
         datetime_list = [datetime.fromisocalendar(year, 1, 1) for year in years]
         datetime_list.append(datetime.fromisocalendar(years[-1] + 1, 1, 1))
         super().__init__(

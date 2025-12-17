@@ -6,7 +6,7 @@ from framcore.components import Component, Flow
 
 class Transmission(Component):
     """
-    Transmission component representing a transmission line. Subclass of Component.
+    Transmission component representing a one directional transmission line. Subclass of Component.
 
     An object of this class represents one transmission line where power flows one direction (the other direction is
     represented by another Transmission object). However, the actual measured power being sent can be higher than the
@@ -28,7 +28,22 @@ class Transmission(Component):
         ingoing_volume: AvgFlowVolume | None = None,
         outgoing_volume: AvgFlowVolume | None = None,
     ) -> None:
-        """Initialize object of the Transmission class. Perform type checks and convert arguments to expressions."""
+        """
+        Initialize object of the Transmission class. Perform type checks and convert arguments to expressions.
+
+        Args:
+            from_node (str): Node which power is transported from.
+            to_node (str): Destination Node.
+            max_capacity (FlowVolume, optional): Maximum transmission capacity. Defaults to None.
+            min_capacity (FlowVolume | None, optional): Minimum transmission capacity. Defaults to None.
+            loss (Loss | None, optional): Amount of power lost while transmitting. Defaults to None.
+            tariff (Cost | None, optional): Costs associated with operating this transmission line. Defaults to None.
+            ramp_up (Proportion | None, optional): Max upwards change in transmission per time. Defaults to None.
+            ramp_down (Proportion | None, optional): Max downwards change in transmission per time. Defaults to None.
+            ingoing_volume (AvgFlowVolume | None, optional): Volume of power recieved by to_node. Defaults to None.
+            outgoing_volume (AvgFlowVolume | None, optional): Volume of power sent by from_node. Defaults to None.
+
+        """
         super().__init__()
 
         self._check_type(from_node, str)

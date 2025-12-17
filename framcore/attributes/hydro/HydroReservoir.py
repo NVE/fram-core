@@ -3,7 +3,7 @@ from framcore.attributes.Storage import Storage
 
 
 class HydroReservoir(Storage):
-    """Reservoir class representing a hydro reservoir attribute."""
+    """Represent a hydro reservoir of a HydroModule."""
 
     def __init__(
         self,
@@ -15,9 +15,9 @@ class HydroReservoir(Storage):
         Initialize a HydroReservoir instance.
 
         Args:
-            capacity (StockVolume): The total storage capacity of the reservoir.
-            reservoir_curve (ReservoirCurve, optional): The curve describing reservoir characteristics.
-            volume (StockVolume, optional): The current volume of water in the reservoir.
+            capacity (StockVolume): The maximum storage capacity of the reservoir.
+            reservoir_curve (ReservoirCurve, optional): The curve describing water level elevation to volume characteristics.
+            volume (StockVolume, optional): Volume of water in the reservoir.
 
         """
         super().__init__(

@@ -6,7 +6,7 @@ from framcore.timeindexes.FixedFrequencyTimeIndex import FixedFrequencyTimeIndex
 
 
 class SinglePeriodTimeIndex(FixedFrequencyTimeIndex):
-    """FrequencyTimeIndex with just one single step."""
+    """FixedFrequencyTimeIndex with just one single step."""
 
     def __init__(
         self,

@@ -8,7 +8,7 @@ from framcore.utils import get_supported_components
 
 
 # TODO: Finish implementation, test and demo
-def get_storage_subsystems(domain_components: dict[str, Component] | Model) -> dict[str, set[str]]:
+def get_storage_subsystems(domain_components: dict[str, Component] | Model) -> dict[str, set[str]]:  # noqa: D103
     if isinstance(domain_components, Model):
         domain_components = {k: v for k, v in domain_components.get_data() if isinstance(v, Component)}
 
@@ -21,12 +21,11 @@ def get_storage_subsystems(domain_components: dict[str, Component] | Model) -> d
     abstract_subsystems, __ = get_one_commodity_storage_subsystems(graph, include_boundaries=True)
 
     # TODO: Use Component.get_top_level to lift abstract_subsystems back to domain_components
-    domain_subsystems = abstract_subsystems
-
-    return domain_subsystems
+    return abstract_subsystems
 
 
-def get_one_commodity_storage_subsystems(
+
+def get_one_commodity_storage_subsystems(  # noqa: C901
     graph: dict[str, Node | Flow],
     include_boundaries: bool,
 ) -> dict[str, tuple[str, set[str], set[str]]]:

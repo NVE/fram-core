@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
+from framcore import check_type
 from framcore.curves import Curve
 from framcore.expressions import Expr
 from framcore.expressions._get_constant_from_expr import _get_constant_from_expr
@@ -28,34 +29,26 @@ def get_level_value(
     is_max: bool,
 ) -> float:
     """
-    Evaluate expr representing a (possibly aggregated) level.
+    Evaluate Expr representing a (possibly aggregated) level.
 
-    The follwing will be automatically handeled for you:
-      - conversion to requested unit
-      - conversion to requested reference period
-      - conversion to requested level type
-      - fetching from different data objecs
+    The follwing will be automatically handled for you:
+    - fetching from different data objecs (from db)
+    - conversion to requested unit
+    - query at requested TimeIndex for data and scenario dimension, and with requested reference period
+    - conversion to requested level type (is_max or is_avg)
 
-    expr = sum(scale[i] * level[i]) where
+    Supports all expressions. Will evaluate level Exprs at data_dim (with reference period of scen_dim),
+    and profile Exprs as an average over scen_dim (both as constants). Has optimized fastpath methods for sums, products and aggregations.
+    The rest uses a fallback method with SymPy.
 
-        scale[i] >= 0 and is unitless
-        level[i] is a unitful level expr
-
-        level[i] is either "avg" or "max" type of level
-
-        if "avg", it has a reference period (startyear, startyear + numyears) and a corresponding
-        "mean_one" profile, for which mean(values) = 1 for values covering the reference period
-
-        "avg" and "max" level type must be converted to the same standard to be added correctly.
-
-        Two "avg" types with different reference period must be converted to same reference period
-        to be added correctly.
-
-        The query parameter scen_dim tells which reference period to convert to.
-
-        The query parameter is_max tells which level type to convert to.
     """
+    check_type(expr, Expr)  # check expr here since _get_level_value is not recursively called.
+    check_type(unit, (str, type(None)))
+    check_type(data_dim, SinglePeriodTimeIndex)
+    check_type(scen_dim, FixedFrequencyTimeIndex)
+    check_type(is_max, bool)
     db = _load_model_and_create_model_db(db)
+
     return _get_level_value(expr, db, unit, data_dim, scen_dim, is_max)
 
 
@@ -72,7 +65,7 @@ def get_profile_vector(
 
     expr = sum(weight[i] * profile[i]) where
 
-        weight[i] >= 0 and is unitless
+        weight[i] >= 0 and is unitless, and will be evaluated as a constant
         profile[i] is a unitless profile expr
 
         profile[i] is either "zero_one" or "mean_one" type of profile
@@ -80,15 +73,24 @@ def get_profile_vector(
         "zero_one" and "mean_one" profile type must be converted to the
         same standard to be added correctly.
 
-        The query parameter data_dim is used to compute weight[i].
+        The query parameters data_dim and scen_dim are used to evaluate the values
+        requested TimeIndex for data and scenario dimension, and with requested reference period
 
-        The query parameter scen_dim specifies the out vector dimension.
+        weight[i] will be evaluated level Exprs at data_dim (with reference period of scen_dim),
+        and profile Exprs as an average over scen_dim (both as constants)
+
+        profile[i] will be evaluated as profile vectors over scen_dim
 
         The query parameter is_zero_one tells which profile type the output
         vector should be converted to.
     """
+    # Argument expr checked in _get_profile_vector since it can be recursively called.
+    check_type(data_dim, SinglePeriodTimeIndex)
+    check_type(scen_dim, FixedFrequencyTimeIndex)
+    check_type(is_zero_one, bool)
+    check_type(is_float32, bool)
     db = _load_model_and_create_model_db(db)
-    # TODO: Implement checks cleaner
+
     return _get_profile_vector(expr, db, data_dim, scen_dim, is_zero_one, is_float32)
 
 
@@ -126,9 +128,6 @@ def _get_level_value(
     scen_dim: FixedFrequencyTimeIndex,
     is_max: bool,
 ) -> float:
-    # TODO: Implement checks cleaner
-    assert isinstance(expr, Expr), f"{expr}"
-
     cache_key = ("_get_constant_from_expr", expr, unit, data_dim, scen_dim, is_max)
     if db.has_key(cache_key):
         return db.get(cache_key)
@@ -148,34 +147,12 @@ def _get_profile_vector(
     is_zero_one: bool,
     is_float32: bool = True,
 ) -> NDArray:
-    assert isinstance(expr, Expr), f"{expr}"
+    check_type(expr, Expr)
 
     if expr.is_leaf():
-        src = expr.get_src()
-
-        if isinstance(src, str):
-            obj = db.get(src)
-        else:
-            assert isinstance(src, TimeVector)
-            obj = src
-
-        if isinstance(obj, Expr):
-            assert obj.is_profile(), f"{obj}"
-            return _get_profile_vector(obj, db, data_dim, scen_dim, is_zero_one, is_float32)
-
-        assert isinstance(obj, TimeVector)
-        cache_key = ("_get_profile_vector_from_timevector", obj, data_dim, scen_dim, is_zero_one, is_float32)
-        if db.has_key(cache_key):
-            vector: NDArray = db.get(cache_key)
-            return vector.copy()
-        t0 = time.perf_counter()
-        vector = _get_profile_vector_from_timevector(obj, scen_dim, is_zero_one, is_float32)
-        t1 = time.perf_counter()
-        db.put(cache_key, vector, elapsed_seconds=t1 - t0)
-        return vector
+        return _get_profile_vector_from_leaf_expr(expr, db, data_dim, scen_dim, is_zero_one, is_float32)
 
     ops, args = expr.get_operations(expect_ops=True, copy_list=False)
-
     tmp = np.zeros(scen_dim.get_num_periods(), dtype=np.float32 if is_float32 else np.float64)
 
     if "+" in ops:
@@ -192,16 +169,54 @@ def _get_profile_vector(
 
     profiles = [arg for arg in args if arg.is_profile()]
     weights = [arg for arg in args if not arg.is_profile()]
+
     if len(profiles) != 1:
         message = f"Got {len(profiles)} profiles in expr {expr}"
         raise ValueError(message)
+
     total_weight = 0.0
     is_max = False  # use avg-values to calculate weights
+
     for weight_expr in weights:
         total_weight += _get_constant_from_expr(weight_expr, db, None, data_dim, scen_dim, is_max)
+
     out = _get_profile_vector(profiles[0], db, data_dim, scen_dim, is_zero_one, is_float32)
     np.multiply(out, total_weight, out=out)
     return out
+
+
+def _get_profile_vector_from_leaf_expr(
+    expr: Expr,
+    db: QueryDB,
+    data_dim: SinglePeriodTimeIndex,
+    scen_dim: FixedFrequencyTimeIndex,
+    is_zero_one: bool,
+    is_float32: bool,
+) -> NDArray:
+    src = expr.get_src()
+
+    if isinstance(src, str):
+        obj = db.get(src)
+    else:
+        obj = src
+
+    if isinstance(obj, Expr):
+        if not obj.is_profile():
+            msg = f"Expected {obj} to be is_profile=True."  # User may be getting this from setting wrong metadata in time vector files?
+            raise ValueError(msg)
+        return _get_profile_vector(obj, db, data_dim, scen_dim, is_zero_one, is_float32)
+
+    assert isinstance(obj, (TimeVector, Curve))
+
+    cache_key = ("_get_profile_vector_from_timevector", obj, data_dim, scen_dim, is_zero_one, is_float32)
+    if db.has_key(cache_key):
+        vector: NDArray = db.get(cache_key)
+        return vector.copy()
+    t0 = time.perf_counter()
+    vector = _get_profile_vector_from_timevector(obj, scen_dim, is_zero_one, is_float32)
+    t1 = time.perf_counter()
+    db.put(cache_key, vector, elapsed_seconds=t1 - t0)
+    return vector
 
 
 def _get_profile_vector_from_timevector(
@@ -254,30 +269,8 @@ def _get_profile_vector_from_timevector(
 def _recursively_update_units(units: set[str], db: QueryDB, expr: Expr) -> None:
     if expr.is_leaf():
         src = expr.get_src()
-
         obj = src if isinstance(src, TimeVector) else db.get(key=src)
 
-        if isinstance(obj, Expr):
-            _recursively_update_units(units, db, obj)
-        elif isinstance(obj, Curve):
-            message = "Not yet implemented for Curve objects."
-            raise NotImplementedError(message)
-        elif isinstance(obj, TimeVector):
-            unit = obj.get_unit()
-            if unit is not None:
-                units.add(unit)
-        else:
-            message = f"Got unexpected object {obj}."
-            raise RuntimeError(message)
-    __, args = expr.get_operations(expect_ops=False, copy_list=False)
-    for arg in args:
-        _recursively_update_units(units, db, arg)
-
-
-def _recursively_update_units(units: set[str], db: QueryDB, expr: Expr) -> None:
-    if expr.is_leaf():
-        src = expr.get_src()
-        obj = src if isinstance(src, TimeVector) else db.get(key=src)
         if isinstance(obj, Expr):
             _recursively_update_units(units, db, obj)
         elif isinstance(obj, Curve):

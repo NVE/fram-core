@@ -30,19 +30,12 @@ class LoadedTimeVector(TimeVector):
         self._loader = loader
         self._check_type(self._vector_id, str)
         self._check_type(self._loader, TimeVectorLoader)
-
         self._is_max_level = self._loader.is_max_level(self._vector_id)
         self._is_zero_one_profile = self._loader.is_zero_one_profile(self._vector_id)
         self._unit = self._loader.get_unit(self._vector_id)
         self._reference_period = self._loader.get_reference_period(self._vector_id)
 
-        if (self._is_max_level is not None and self._is_zero_one_profile is not None) or (self._is_max_level is None and self._is_zero_one_profile is None):
-            message = (
-                f"Values for {self._loader} is_max_level ({self._is_max_level}) and is_zero_one_profile"
-                f" ({self._is_zero_one_profile}) with time vector {self} Must have exactly one 'non-None' value."
-                " A TimeVector is either a level or a profile."
-            )
-            raise ValueError(message)
+        self._check_is_level_or_profile()
 
     def __repr__(self) -> str:
         """Overwrite string representation of LoadedTimeVector objects."""

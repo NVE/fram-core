@@ -14,17 +14,19 @@ def test_same_list_time_vectors_should_have_same_fingerprint(default_vector):
 
     assert ltv1.get_fingerprint().get_hash() == ltv2.get_fingerprint().get_hash()
 
+
 def default_index():
     return ListTimeIndex(
-        datetime_list=pd.date_range(start="2023-01-01", periods=3, freq="D"),
+        datetime_list=pd.date_range(start="2023-01-01", periods=4, freq="D"),
         is_52_week_years=False,
         extrapolate_first_point=False,
         extrapolate_last_point=False,
     )
 
+
 def other_index():
     return ListTimeIndex(
-        datetime_list=pd.date_range(start="2024-01-01", periods=3, freq="D"),
+        datetime_list=pd.date_range(start="2024-01-01", periods=4, freq="D"),
         is_52_week_years=False,
         extrapolate_first_point=False,
         extrapolate_last_point=False,

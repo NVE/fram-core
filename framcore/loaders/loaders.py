@@ -47,8 +47,6 @@ class Loader(Base, ABC):
         """Clear cached data from the loader."""
         pass
 
-    # TODO: Is this correct? Also figure out how sharing Loaders should be when copying model given filepaths and copied
-    # database
     def __deepcopy__(self, memo: dict) -> Loader:
         """
         Overwrite deepcopy.

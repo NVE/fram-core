@@ -12,7 +12,15 @@ if TYPE_CHECKING:
 
 
 class Flow(Component):
-    """Represents a commodity flow in or out of one or more nodes."""
+    """
+    Represents a commodity flow in or out of one or more nodes. Can have Attributes and Metadata.
+
+    Main attributes are arrows, main_node, max_capacity, min_capacity, startupcost and if it is exogenous.
+
+    Arrows describes contribution of a Flow into a Node. Has direction to determine input or output,
+    and parameters for the contribution of the Flow to the Node (conversion, efficiency, loss).
+    Nodes, Flows and Arrows are the main building blocks in FRAM's low-level representation of energy systems.
+    """
 
     def __init__(
         self,
@@ -24,7 +32,21 @@ class Flow(Component):
         arrow_volumes: dict[Arrow, AvgFlowVolume] | None = None,
         is_exogenous: bool = False,
     ) -> None:
-        """Initialize Flow with main node, capacity, and startup cost."""
+        """
+        Initialize Flow with main node, capacity, and startup cost.
+
+        Args:
+            main_node (str): Node which the Flow is primarily associated with.
+            max_capacity (FlowVolume | None, optional): Maximum capacity of the Flow. Defaults to None.
+            min_capacity (FlowVolume | None, optional): Minimum capacity of the Flow. Defaults to None.
+            startupcost (StartUpCost | None, optional): Costs associated with starting up this Flow. Defaults to None.
+            volume (AvgFlowVolume | None, optional): The actual volume carried by this Flow at a given moment. Defaults to None.
+            arrow_volumes (dict[Arrow, AvgFlowVolume] | None, optional): Possibility to store a version of volume for each Arrow. Can account for conversion,
+            efficiency and loss to represent the result for different commodities and units. Defaults to None.
+            is_exogenous (bool, optional): Flag denoting if a Solver should calculate the volumes associated with this flow or use its predefined volume.
+                                           Defaults to False.
+
+        """
         super().__init__()
         self._check_type(main_node, str)
         self._check_type(max_capacity, (FlowVolume, type(None)))
@@ -54,7 +76,7 @@ class Flow(Component):
 
     def set_exogenous(self) -> None:
         """
-        Treat flow as rhs term.
+        Treat flow as fixed variable.
 
         Use volume if it exists.
         If no volume, then try to use
@@ -132,7 +154,7 @@ class Flow(Component):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add loaders stored in attributes to loaders."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self.get_volume())
         add_loaders_if(loaders, self.get_max_capacity())

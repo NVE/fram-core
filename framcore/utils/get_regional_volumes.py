@@ -176,7 +176,7 @@ def _get_vector(
 # TODO: More options: node_category, consumption_category, production_category, with_trade_partners
 
 
-def _check_category(category, flow_id, flow_info) -> None:
+def _check_category(category: str, flow_id: str, flow_info: FlowInfo) -> None:
     pass
 
 

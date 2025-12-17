@@ -3,7 +3,25 @@ from framcore.components import Component, Flow, Node
 
 
 class HydroModule(Component):
-    """HydroModule class representing a hydro module component."""
+    """
+    HydroModules represents a physical element in a river system, with its topology and other attributes.
+
+    The hydromodule can contain a HydroReservoir, HydroGenerator, HydroPump, HydroBypass and local inflow, aswell as the topological attributes release_to
+    and spill_to:
+
+    - HydroGenerator uses the release pathway of the HydroModule to generate power, while HydroPump has its own water way that consumes
+      power. Both HydroGenerator and HydroPump connects to power nodes.
+    - HydroBypass also have attributes that define the topology of the river system.
+    - HydroReservoir represents the water storage of the HydroModule.
+    - The hydraulic_coupling attribute is used to identify which HydroModules have hydraulic coupled reservoirs.
+
+
+    Results for the release volume, spill volume and the water value are stored directly in the HydroModule, while the production, pumping,
+    reservoir volume and bypass volume are stored in the attributes.
+
+    HydroModule is compatible with HydroAggregator for aggregation of multiple HydroModules into one.
+
+    """
 
     # We add this to module name to get corresponding node name
     _NODE_NAME_POSTFIX = "_node"
@@ -24,7 +42,28 @@ class HydroModule(Component):
         release_volume: AvgFlowVolume | None = None,
         spill_volume: AvgFlowVolume | None = None,
     ) -> None:
-        """Initialize the HydroModule with its parameters."""
+        """
+        Initialize the HydroModule with its parameters.
+
+        Args:
+            release_to (str | None, optional): Reference to another HydroModule which recieves the water releases through the main release. Defaults to None.
+            release_capacity (FlowVolume | None): Amount of water which can be released via main release at a given moment. Defaults to None.
+            generator (HydroGenerator | None, optional): Represents generation of electricity from the movement of water through the Modules main release
+                                                        pathway. Defaults to None.
+            pump (HydroPump | None): Pump associated with this Module. Can move water to another using power. Defaults to None.
+            inflow (AvgFlowVolume | None, optional): The local inflow of the HydroModule. Defaults to None.
+            reservoir (HydroReservoir | None, optional): The Modules water storage. Defaults to None.
+            hydraulic_coupling (int): Number other than 0 if the HydroModules reservoir is hydraulic coupled to another reservoir. Defaults to 0.
+                                                        TODO: Replace with HydraulicCoupling class
+            bypass (HydroBypass | None, optional): Bypass water way. Defaults to None.
+            spill_to (str | None): Reference to another Module recieving this ones spill volume. Defaults to None.
+            commodity (str, optional): Commodity of the hydro node. Defaults to "Hydro".
+            water_value (WaterValue | None, optional): Water value of the reservoir in currency per water volume. Defaults to None.
+                                                        TODO: Allow water values with multiple demimensions?
+            release_volume (AvgFlowVolume | None, optional): Volume of water released via main waterway. Defaults to None.
+            spill_volume (AvgFlowVolume | None, optional): Volume of water spilled. Defaults to None.
+
+        """
         super().__init__()
         self._check_type(release_to, (str, type(None)))
         self._check_type(release_capacity, (FlowVolume, type(None)))
@@ -187,6 +226,7 @@ class HydroModule(Component):
             arrow_volumes=None,
             is_exogenous=False,
         )
+
         arrow_volumes = flow.get_arrow_volumes()
 
         outgoing_arrow = Arrow(
@@ -194,6 +234,7 @@ class HydroModule(Component):
             is_ingoing=False,
             conversion=Conversion(value=1),
         )
+
         flow.add_arrow(outgoing_arrow)
 
         if self._release_to:
@@ -209,7 +250,7 @@ class HydroModule(Component):
             production_arrow = Arrow(
                 node=self._generator.get_power_node(),
                 is_ingoing=True,
-                conversion=self._generator.get_energy_eq(),
+                conversion=self._generator.get_energy_equivalent(),
             )
             flow.add_arrow(production_arrow)
             arrow_volumes[production_arrow] = self._generator.get_production()
@@ -322,7 +363,7 @@ class HydroModule(Component):
         pump_arrow = Arrow(
             node=self._pump.get_power_node(),
             is_ingoing=False,
-            conversion=self._pump.get_energy_eq(),
+            conversion=self._pump.get_energy_equivalent(),
         )
         flow.add_arrow(pump_arrow)
         arrow_volumes[pump_arrow] = self._pump.get_power_consumption()

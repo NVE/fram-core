@@ -50,4 +50,12 @@ def test_exprs_with_different_operations_should_have_different_fingerprints():
     assert expr1.get_fingerprint().get_hash() != expr2.get_fingerprint().get_hash()
 
 def create_expr(props: dict) -> Expr:
-    return Expr(src=props.get("src"), is_stock=props.get("is_stock", False), is_flow=props.get("is_flow", False), is_profile=props.get("is_profile", False), is_level=props.get("is_level", False), profile=props.get("profile"), operations=props.get("operations"))
+    return Expr(
+        src=props.get("src"),
+        is_stock=props.get("is_stock", False),
+        is_flow=props.get("is_flow", False),
+        is_profile=props.get("is_profile", False),
+        is_level=props.get("is_level", False),
+        profile=props.get("profile"),
+        operations=props.get("operations"),
+    )

@@ -4,6 +4,7 @@ from copy import copy
 from typing import TYPE_CHECKING
 
 from framcore import Base
+from framcore.curves import Curve, LoadedCurve
 from framcore.fingerprints import Fingerprint, FingerprintRef
 from framcore.timevectors import ConstantTimeVector, TimeVector
 
@@ -13,11 +14,44 @@ if TYPE_CHECKING:
 
 # TODO: Add Expr.add_many to support faster aggregation expressions.
 class Expr(Base):
-    """Expressions for data manipulation of curves and timevectors."""
+    """
+    Mathematical expression with TimeVectors and Curves to represent Levels and Profiles in LevelProfiles.
+
+    The simplest Expr is a single TimeVector, while a more complicated expression could be a weighted average of several TimeVectors or Expressions.
+    Expr can also have string references to Expr, TimeVector or Curve in a database (often Model).
+
+    Expr are classified as Stock, Flow or None of them. See https://en.wikipedia.org/wiki/Stock_and_flow. In FRAM we only support Flow data as a rate of change.
+    So, for example, a production timeseries has to be in MW, and not in MWh. Converting between the two versions of Flow would add another
+    level of complexity both in Expr and in TimeVector operations.
+
+    Expr are also classified as Level, Profile or none of them. This classification, together with Stock or Flow,
+    is used to check if the built Expr are legal operations.
+    - Expr that are Level can contain its connected Profile Expr. This is used in the queries to evaluate Levels according to their ReferencePeriod, and
+        convert between Level formats (max level or average level, see LevelProfile for more details).
+
+    Calculations using Expr are evaluated lazily, reducing unnecessary numerical operations during data manipulation.
+    Computations involving values and units occur only when the Expr is queried.
+
+    We only support calculations using +, -, *, and / in Expr, and we have no plans to change this.
+    Expanding beyond these would turn Expr into a complex programming language rather than keeping it as a simple
+    and efficient system for common time-series calculations. More advanced operations are still possible through eager evaluation, so this is not a limitation.
+    It simply distributes responsibilities across system components in a way that is practical from a maintenance perspective.
+
+    We use SymPy to support unit conversions. Already computed unit conversion factors are cached to minimize redundant calculations.
+
+    At the moment we support these queries for Expr (see Aggregators for more about how they are used):
+    - get_level_value(expr, db, unit, data_dim, scen_dim, is_max)
+        - Supports all expressions. Will evaluate level Exprs at data_dim (with reference period of scen_dim),
+            and profile Exprs as an average over scen_dim (both as constants).
+        - Has optimized fastpath methods for sums, products and aggregations. The rest uses a fallback method with SymPy.
+    - get_profile_vector(expr, db, data_dim, scen_dim, is_zero_one, is_float32)
+        - Supports expr = sum(weight[i] * profile[i]) where weight[i] is a unitless constant Expr with value >= 0, and profile[i] is a unitless profile Expr.
+
+    """
 
     def __init__(
         self,
-        src: str | TimeVector | None = None,
+        src: str | Curve | TimeVector | None = None,
         is_stock: bool = False,
         is_flow: bool = False,
         is_profile: bool = False,
@@ -26,19 +60,33 @@ class Expr(Base):
         operations: tuple[str, list[Expr]] | None = None,
     ) -> None:
         """
-        Create new (immutable) expression.
+        Create new (immutable) Expression.
 
         Args:
-            src (str | None, optional): _description_. Defaults to None.
-            is_stock (bool, optional): _description_. Defaults to False.
-            is_flow (bool, optional): _description_. Defaults to False.
-            is_profile (bool, optional): _description_. Defaults to False.
-            is_level (bool, optional): _description_. Defaults to False.
-            profile (Expr | None, optional): _description_. Defaults to None.
+            src (str | Curve | TimeVector | None, optional): Source of the values to be used in the Expression. Either a Curve or TimeVector object,
+              or a reference to one of them. Defaults to None.
+            is_stock (bool, optional): Flag to signify if the Expr represents a stock type variable. Defaults to False.
+            is_flow (bool, optional): Flag to signify if the Expr represents a flow type variable. Defaults to False.
+            is_profile (bool, optional): Flag to signify if the Expr represents a profile. Defaults to False.
+            is_level (bool, optional): Flag to signify if the Expr represents a level. Defaults to False.
+            profile (Expr | None, optional): Expr that are Level can contain its connected Profile Expr. This is used in the queries to evaluate
+                Levels according to their ReferencePeriod, and convert between Level formats (max level or average level, see LevelProfile for more details).
             operations (tuple[str, list[Expr]] | None, optional): Operations to apply to the expression. Defaults to None.
 
-        """  # TODO: write detailed description of what the labels of Expr means (level, profile, flow, stock)
-        self._src: str | TimeVector | None = src
+        """
+        if is_level and is_profile:
+            message = "Expr cannot be both level and a profile. Set either is_level or is_profile True or both False."
+            raise ValueError(message)
+
+        if is_flow and is_stock:
+            message = "Expr cannot be both flow and stock. Set either is_flow or is_stock True or both False."
+            raise ValueError(message)
+
+        if is_profile and (is_flow or is_stock):
+            message = "Expr cannot be both a profile and a flow/stock. Profiles must be coefficients."
+            raise ValueError(message)
+
+        self._src: str | Curve | TimeVector | None = src
         self._is_stock = is_stock
         self._is_flow = is_flow
         self._is_profile = is_profile
@@ -49,7 +97,7 @@ class Expr(Base):
         # because fields are used to create
         # error messages e.g. in __repr__
 
-        self._check_type(src, (str, TimeVector, type(None)))
+        self._check_type(src, (str, Curve, TimeVector, type(None)))
         self._check_type(is_stock, (bool, type(None)))
         self._check_type(is_flow, (bool, type(None)))
         self._check_type(is_level, (bool, type(None)))
@@ -80,7 +128,7 @@ class Expr(Base):
                 raise ValueError(message)
             return
         if len(ops) != len(args) - 1:
-            message = f"Expected len(ops) == len(args). Got {operations}"
+            message = f"Expected len(ops) == len(args) - 1. Got {operations}"
             raise ValueError(message)
         for op in ops:
             if op not in "+-/*":
@@ -106,8 +154,8 @@ class Expr(Base):
         """Return True if self is not an operation expression."""
         return self._src is not None
 
-    def get_src(self) -> str | TimeVector | None:
-        """Return str (either usercode or key in model) or None if self is an operation expression."""
+    def get_src(self) -> str | Curve | TimeVector | None:
+        """Return str, Curve or TimeVector (either reference to Curve/TimeVector or Curve/TimeVector itself) or None if self is an operation expression."""
         return self._src
 
     def get_operations(self, expect_ops: bool, copy_list: bool) -> tuple[str, list[Expr]]:
@@ -122,23 +170,28 @@ class Expr(Base):
     def _verify_operations(self, expect_ops: bool = False) -> None:
         self._check_operations(self._operations, expect_ops)
         ops = self._operations[0]
+
         if not ops:
             return
+
         has_add = "+" in ops
         has_sub = "-" in ops
         has_mul = "*" in ops
         has_div = "/" in ops
+
         if (has_add or has_sub) and (has_mul or has_div):
-            message = f"+- in same operation level as */ in operations {self._operations} "
+            message = f"Found +- in same operation level as */ in operations {self._operations} "
             raise ValueError(message)
+
         if has_div:
             seen_div = False
             for op in ops:
                 if op == "/":
                     seen_div = True
-                    break
+                    continue
                 if seen_div and op != "/":
-                    message = f"+-* after / in operations {self._operations}"
+                    message = f"Found +-* after / in operations {self._operations}"
+                    raise ValueError(message)
 
     def is_flow(self) -> bool:
         """Return True if flow. Cannot be stock and flow."""
@@ -258,7 +311,7 @@ class Expr(Base):
     def _create_op_expr(  # noqa: C901
         self,
         op: str,
-        other: object,
+        other: Expr | int | float,
         is_rhs: bool,
     ) -> Expr:
         if isinstance(other, Expr):
@@ -377,12 +430,12 @@ class Expr(Base):
     def __repr__(self) -> str:
         """Represent Expr as str."""
         if self._src is not None:
-            return f"{self._src}"
+            return f"Expr({self._src})"
         ops, args = self.get_operations(expect_ops=True, copy_list=False)
         out = f"{args[0]}"
         for op, arg in zip(ops, args[1:], strict=True):
             out = f"{out} {op} {arg}"
-        return f"({out})"
+        return f"Expr({out})"
 
     def __eq__(self, other) -> bool:  # noqa: ANN001
         """Check if self and other are equal."""
@@ -397,7 +450,7 @@ class Expr(Base):
             and self._profile == other._profile
             and self._operations[0] == other._operations[0]
             and len(self._operations[1]) == len(other._operations[1])
-            and all([self._operations[1][i] == other._operations[1][i] for i in range(len(self._operations[1]))])
+            and all([self._operations[1][i] == other._operations[1][i] for i in range(len(self._operations[1]))])  # noqa: SLF001
         )
 
     def __hash__(self) -> int:
@@ -417,11 +470,9 @@ class Expr(Base):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in TimeVector or Curve within Expr to loaders."""
-        from framcore.curves import Curve
-
         if self.is_leaf():
             src = self.get_src()
-            if isinstance(src, TimeVector | Curve):
+            if isinstance(src, TimeVector | LoadedCurve):
                 loader = src.get_loader()
                 if loader is not None:
                     loaders.add(loader)
@@ -433,7 +484,7 @@ class Expr(Base):
 
 # Proposed new way of creating Expr in classes.
 def ensure_expr(
-    value: Expr | str | TimeVector | None,  # technically anything that can be converted to float. Typehint for this?
+    value: Expr | str | Curve | TimeVector | None,  # technically anything that can be converted to float. Typehint for this?
     is_flow: bool = False,
     is_stock: bool = False,
     is_level: bool = False,
@@ -455,21 +506,15 @@ def ensure_expr(
         value (Expr | str): The value as an expression of the expected type or None.
 
     """
-    # Following checks could be moved to Expr.
-    if is_level and is_profile:
-        message = "Expr cannot be both level and a profile. Set either is_level or is_profile True or both False."
-        raise ValueError(message)
-    if is_flow and is_stock:
-        message = "Expr cannot be both flow and stock. Set either is_flow or is_stock True or both False."
-        raise ValueError(message)
-    if is_profile and (is_flow or is_stock):
-        message = "Expr cannot be both a profile and a flow/stock. Profiles must be coefficients."
+    if not isinstance(value, (str, Expr, Curve, TimeVector)) and value is not None:
+        msg = f"Expected value to be of type Expr, str, Curve, TimeVector or None. Got {type(value).__name__}."
+        raise TypeError(msg)
 
     if value is None:
         return None
+
     if isinstance(value, Expr):
         # Check wether given Expr matches expected flow, stock, profile and level status.
-        # Alternatively we could just create a new Expr with updated status.
         if value.is_flow() != is_flow or value.is_stock() != is_stock or value.is_level() != is_level or value.is_profile() != is_profile:
             message = (
                 "Given Expr has a mismatch between expected and actual flow/stock or level/profile status:\nExpected: "
@@ -488,3 +533,59 @@ def ensure_expr(
         is_profile=is_profile,
         profile=profile,
     )
+
+
+def get_profile_exprs_from_leaf_levels(expr: Expr) -> list[Expr]:
+    """
+    Get all profile expressions from leaf-level Expr objects that are marked as levels.
+
+    Args:
+        expr (Expr): The starting Expr object.
+
+    Returns:
+        list[Expr]: A list of profile expressions from leaf-level Expr objects.
+
+    """
+    profile_exprs = []
+
+    def _traverse(expr: Expr) -> None:
+        if expr.is_leaf():
+            if expr.is_level() and expr.get_profile() is not None:
+                profile_exprs.append(expr.get_profile())
+            return
+
+        # Recursively traverse the arguments of the expression
+        _, args = expr.get_operations(expect_ops=False, copy_list=False)
+        for arg in args:
+            _traverse(arg)
+
+    _traverse(expr)
+    return profile_exprs
+
+
+def get_leaf_profiles(expr: Expr) -> list[Expr]:
+    """
+    Get all leaf profile expressions from an Expr object.
+
+    Args:
+        expr (Expr): The starting Expr object.
+
+    Returns:
+        list[Expr]: A list of leaf profile expressions.
+
+    """
+    leaf_profiles = []
+
+    def _traverse(expr: Expr) -> None:
+        if expr.is_leaf():
+            if expr.is_profile():
+                leaf_profiles.append(expr)
+            return
+
+        # Recursively traverse the arguments of the expression
+        _, args = expr.get_operations(expect_ops=False, copy_list=False)
+        for arg in args:
+            _traverse(arg)
+
+    _traverse(expr)
+    return leaf_profiles

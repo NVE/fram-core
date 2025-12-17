@@ -7,24 +7,55 @@ from typing import TYPE_CHECKING
 from framcore.aggregators import Aggregator
 from framcore.aggregators._utils import _aggregate_costs
 from framcore.attributes import MaxFlowVolume, Price
-from framcore.components import Component, Demand, Node, Transmission, Flow
+from framcore.components import Component, Demand, Flow, Node, Transmission
 from framcore.curves import Curve
 from framcore.expressions import Expr
 from framcore.metadata import Member, Meta
 from framcore.timeindexes import FixedFrequencyTimeIndex, SinglePeriodTimeIndex
 from framcore.timevectors import TimeVector
-from framcore.utils import get_component_to_nodes, get_transports_by_commodity, get_supported_components, get_flow_infos, get_node_to_commodity
-
-# TODO: Support internal loss demand
-# TODO: Document method appropriate place (which docstring? module? class? __init__? _aggregate?)
-# TODO: transfer member metadata to internal loss Demand
+from framcore.utils import get_component_to_nodes, get_flow_infos, get_node_to_commodity, get_supported_components, get_transports_by_commodity
 
 if TYPE_CHECKING:
     from framcore import Model
 
 
 class NodeAggregator(Aggregator):
-    """Aggregate groups of nodes for a commodity. Subclass of Aggregator."""
+    """
+    Aggregate groups of Nodes for a commodity. Subclass of Aggregator.
+
+    Aggregation steps (self._aggregate):
+
+    1. Map all Components to their Nodes of the correct commodity if they are referencing any. This is important to redirect all references to the
+        new Nodes after aggregation.
+    2. Create mapping of what members the new Nodes will be aggregated from. This step also does alot of error handling and checks the validity of the
+        metadata and groupings. Raises error if:
+        - Nodes do not have any metadata for the meta key.
+        - Nodes have the wrong metadata object type for the meta key (must be Member).
+        - Exogenous Nodes are grouped together for aggregation with endogenous Nodes.
+    3. Initialize new Node objects and set prices and exogenous status. Prices are calculated as a weighted average of all the member Node prices.
+    4. Old Nodes are deleted from the Model data, after which the aggregated Node is added, and references in the rest of the system are updated to point to
+        the new Node.
+    5. Handling of transports: All Components which transport the same commodity as the aggregated Nodes are analysed. If the two Nodes they connect is now
+        the same aggregated Node, the transpart is 'internal' meaning it is now operating within a Node. If the transport Component is lossy, it is replaced
+        by a Demand Component representing the commodity consumption caused by the loss. All internal transports are afterwards deleted.
+
+
+    Disaggregation steps (self._aggregate):
+
+    1. Collect set of Nodes group keys for which have been either removed from the Model data or changed to reference something other than Nodes.
+    2. Validate that IDs of Nodes to be restored have not been used to reference something else in the meantime.
+    3. Delete the aggregated Nodes and restore the old Nodes to the Model. Also copy shadow price results from the aggregated Nodes to the disaggregated.
+        NB! This will overwrite the possible previous shadow prices of the original disaggregated Nodes.
+    4. Restore the references in all objects to the disaggregated Nodes. A mapping created during aggregation is used for this.
+    5. Validate that no restorable internal transports has a name conflict with existing objects in the Model.
+        NB! an internal transport is not restorable if one or both of its referenced Nodes have been removed from the Model or is now referencing another
+        object. See step 1.
+    6. Restore all the restorable internal transports from the original data.
+    7. Delete the aggregation-created Demand objects representing internal transports.
+
+    See Aggregator for general design notes and rules to follow when using Aggregators.
+
+    """
 
     def __init__(
         self,
@@ -125,16 +156,16 @@ class NodeAggregator(Aggregator):
         out: set[str] = set()
         nodes_and_flows = get_supported_components(components, supported_types=(Node, Flow), forbidden_types=tuple())
         node_to_commodity = get_node_to_commodity(nodes_and_flows)
-        for flow in nodes_and_flows.values():            
+        for flow in nodes_and_flows.values():
             if not isinstance(flow, Flow):
                 continue
             flow_infos = get_flow_infos(flow, node_to_commodity)
-            if not len(flow_infos) == 1:
+            if len(flow_infos) != 1:
                 continue
             flow_info = flow_infos[0]
             if flow_info.category != "direct_out":
                 continue
-            if flow_info.commodity_out != self._commodity: 
+            if flow_info.commodity_out != self._commodity:
                 continue
             demand = flow
             for key in demand.get_meta_keys():
@@ -142,7 +173,6 @@ class NodeAggregator(Aggregator):
                 if isinstance(meta, Member):
                     out.add(key)
         return out
-                
 
     def _add_internal_transport_demands(
         self,
@@ -163,7 +193,9 @@ class NodeAggregator(Aggregator):
         for key in self._internal_transports:
             transport = components[key]
             from_node, to_node = transports[key]
-            assert from_node == to_node, f"{from_node}, {to_node}"
+            assert from_node == to_node, (
+                f"Transport {key} added to internal transport when it should not. Source node {from_node}, and destination node {to_node} are not the same."
+            )
             node = from_node
 
             transport: Transmission
@@ -192,13 +224,15 @@ class NodeAggregator(Aggregator):
                     ),
                 )
 
-                for meta_key in demand_member_meta_keys:
+                for meta_key in demand_member_meta_keys:  # transfer member metadata to internal loss Demand
                     internal_losses_demand.add_meta(meta_key, Member("InternalTransportLossFromNodeAggregator"))
 
                 demand_key = key + "_InternalTransportLossDemand_" + node
 
                 self._internal_transport_demands.add(demand_key)
-                assert demand_key not in data, f"{demand_key}"
+                if demand_key in data:
+                    msg = f"Could not use key {demand_key} for internal transport demand because it already exists in the Model."
+                    raise KeyError(msg)
                 data[demand_key] = internal_losses_demand
 
     def _delete_internal_transports(
@@ -227,6 +261,13 @@ class NodeAggregator(Aggregator):
         data = model.get_data()
         weights = [1.0 / len(member_node_names)] * len(member_node_names)
         prices = [data[key].get_price() for key in member_node_names]
+
+        exogenous = [data[key].is_exogenous() for key in member_node_names]
+        if all(exogenous):
+            group_node.set_exogenous()
+        elif any(exogenous):
+            message = f"Only some member Nodes of group {group_node} are exogenous. This is ambiguous. Either all or none must be exogenous."
+            raise ValueError(message)
         if all(prices):
             level, profile, intercept = _aggregate_costs(
                 model=model,
@@ -241,7 +282,7 @@ class NodeAggregator(Aggregator):
             group_node.get_price().set_intercept(intercept)
         elif any(prices):
             missing = [key for key in member_node_names if data[key].get_price() is None]
-            self.send_warning_event(f"Only some member nodes of group {group_node} have a Price, skip aggregate prices. Missing: {missing}")
+            self.send_warning_event(f"Only some member Nodes of group {group_node} have a Price, skip aggregate prices. Missing: {missing}")
 
     def _replace_node(
         self,
@@ -316,17 +357,11 @@ class NodeAggregator(Aggregator):
 
         for group_name in exogenous_groups:  # Check exogenous groups.
             node_keys = grouped_nodes[group_name]
-            if len(node_keys) != 1:  # allow unchanged or renamed exogenous Nodes.
-                self._errors.add(
-                    f"Group {group_name} contains an exogenous Node and must therefore contain only one Node."
-                    " Exogenous Nodes cannot be grouped together with other Nodes.",
-                )
-                # For if we want to allow pure exogenous groups.
-                # for node_key in node_keys:
-                #     node: Node = components[node_key]
-                #     if not node.is_exogenous():
-                #         self._errors.add(f"Group {group_name} contains both exogenous and endogenous Nodes. This is not allowed.")
-                #         break
+            if len(node_keys) > 1:  # allow unchanged or renamed exogenous Nodes.
+                # We allow pure exogenous groups.
+                exogenous = [components[node_key].is_exogenous() for node_key in node_keys]
+                if (not all(exogenous)) and any(exogenous):
+                    self._errors.add(f"Group {group_name} contains both exogenous and endogenous Nodes. This is ambiguous and therefore not allowed.")
 
         # remove single groups with unchanged names and check for duplicated names
         for group_name, node_keys in grouped_nodes.items():
@@ -359,7 +394,7 @@ class NodeAggregator(Aggregator):
                 flipped[member].add(group)
         for k, v in flipped.items():
             if len(v) > 1:
-                self._errors.add(f"Node {k} belong to more than one group {v}")
+                self._errors.add(f"Node {k} belongs to more than one group {v}")
 
     def _disaggregate(
         self,
@@ -393,7 +428,7 @@ class NodeAggregator(Aggregator):
 
             group_node = new_data[group_name]
 
-            if not isinstance(group_node, Node):
+            if not (isinstance(group_node, Node) and group_node.get_commodity() == self._commodity):
                 deleted_group_names.add(group_name)
 
         return deleted_group_names
@@ -409,7 +444,7 @@ class NodeAggregator(Aggregator):
             for key in member_node_names:
                 if key in new_data:
                     obj = new_data[key]
-                    if not isinstance(obj, Node) and obj.get_commodity() == self._commodity:
+                    if not (isinstance(obj, Node) and obj.get_commodity() == self._commodity):
                         typ = type(obj).__name__
                         message = f"Restoring node {key} from group node {group_name} failed because model already stores object of {typ} with that name."
                         self._errors.add(message)
@@ -463,7 +498,7 @@ class NodeAggregator(Aggregator):
             if key in new_data:
                 obj = new_data[key]
                 typ = type(obj).__name__
-                message = f"Restoring deleted transport {key} from group node {group_name} failed becausemodel already stores object of {typ} with that name."
+                message = f"Restoring deleted transport {key} from group node {group_name} failed because model already stores object of {typ} with that name."
                 self._errors.add(message)
 
         self._report_errors(self._errors)

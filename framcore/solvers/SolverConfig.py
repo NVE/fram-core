@@ -149,11 +149,11 @@ class SolverConfig(Base, ABC):
             self.send_warning_event(message)
 
     def get_num_cpu_cores(self) -> int:
-        """Return number of cpu cores JulES can use."""
+        """Return number of cpu cores the Solver can use."""
         return self._num_cpu_cores
 
     def set_num_cpu_cores(self, n: int) -> int:
-        """Set number of cpu cores JulES can use."""
+        """Set number of cpu cores the Solver can use."""
         self._num_cpu_cores = n
 
     def set_currency(self, currency: str) -> None:
@@ -166,11 +166,11 @@ class SolverConfig(Base, ABC):
         return self._currency
 
     def set_screen_output_on(self) -> None:
-        """Print output from JulES to stdout and logfile."""
+        """Print output from Solver to stdout and logfile."""
         self._show_screen_output = True
 
     def set_screen_output_off(self) -> None:
-        """Only print output from JulES to logfile."""
+        """Only print output from Solver to logfile."""
         self._show_screen_output = False
 
     def show_screen_output(self) -> bool:

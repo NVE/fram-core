@@ -7,12 +7,9 @@ if TYPE_CHECKING:
 
 
 class SoftBound:
-    """
-    Represents a soft bound attribute.
+    """Represents a soft bound attribute. Penalty applied if the bound is violated."""
 
-    This class can be extended to define soft bounds for various parameters.
-
-    """
+    # TODO: Implement and comment
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in attributes to loaders."""

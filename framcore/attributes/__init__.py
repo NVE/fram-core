@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 from framcore.attributes.level_profile_attributes import (
     AvgFlowVolume,
     Coefficient,
@@ -16,7 +14,7 @@ from framcore.attributes.level_profile_attributes import (
     Price,
     Proportion,
     ReservePrice,
-    ShaddowPrice,
+    ShadowPrice,
     StockVolume,
     WaterValue,
 )
@@ -55,7 +53,7 @@ __all__ = [
     "Proportion",
     "ReservePrice",
     "ReservoirCurve",
-    "ShaddowPrice",
+    "ShadowPrice",
     "SoftBound",
     "StartUpCost",
     "StockVolume",

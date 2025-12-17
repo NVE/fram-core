@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from framcore.expressions import Expr
 from framcore.fingerprints import Fingerprint
-from framcore.metadata import Div
-from framcore.metadata.Meta import Meta  # NB! full import path needed for inheritance to work
+from framcore.metadata import Div, Meta
 
 
 class ExprMeta(Meta):
@@ -20,6 +19,8 @@ class ExprMeta(Meta):
 
     def __repr__(self) -> str:
         """Overwrite __repr__ for better string representation."""
+        if not hasattr(self, "_value"):
+            return f"{type(self).__name__}(uninitialized)"
         return f"{type(self).__name__}(expr={self._value})"
 
     def __eq__(self, other: object) -> bool:
@@ -28,7 +29,11 @@ class ExprMeta(Meta):
             return False
         return self._value == other._value
 
-    def get_value(self) -> float:
+    def __hash__(self) -> int:
+        """Compute the hash of the ExprMeta."""
+        return hash(self._value)
+
+    def get_value(self) -> Expr:
         """Return expr."""
         return self._value
 
@@ -40,10 +45,11 @@ class ExprMeta(Meta):
     def combine(self, other: Meta) -> Expr | Div:
         """Sum Expr."""
         if isinstance(other, ExprMeta):
-            return Expr(self._value + other.get_value())
-        d = Div(self)
-        d.set_value(other)
-        return d
+            return self._value + other.get_value()
+
+        div = Div(self)
+        div.set_value(other)
+        return div
 
     def get_fingerprint(self) -> Fingerprint:
         """Get the fingerprint of the ScalarMeta."""

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, tzinfo
 import numpy as np
 from numpy.typing import NDArray
 
-import framcore.expressions._time_vector_operations as v_ops
+import framcore.timeindexes._time_vector_operations as v_ops
 from framcore.fingerprints import Fingerprint
 from framcore.timeindexes.TimeIndex import TimeIndex  # NB! full import path needed for inheritance to work
 from framcore.timevectors import ReferencePeriod
@@ -30,22 +30,22 @@ class FixedFrequencyTimeIndex(TimeIndex):
         Args:
             start_time (datetime): The starting datetime of the time index.
             period_duration (timedelta): The duration of each period.
-            num_periods (int): The number of periods in the time index.
+            num_periods (int): The number of periods in the time index. Must be greater than 0.
             is_52_week_years (bool): Whether to use 52-week years.
             extrapolate_first_point (bool): Whether to allow extrapolation of the first point.
             extrapolate_last_point (bool): Whether to allow extrapolation of the last point.
 
         """
-        if num_periods < 0:
-            message = f"num_periods must be a positive integer. Got {num_periods}."
-            raise ValueError(message)
+        if num_periods <= 0:
+            msg = f"num_periods must be a positive integer. Got {num_periods}."
+            raise ValueError(msg)
         if period_duration < timedelta(seconds=1):
-            message = f"period_duration must be at least one second. Got {period_duration}."
-            raise ValueError(message)
+            msg = f"period_duration must be at least one second. Got {period_duration}."
+            raise ValueError(msg)
         if not period_duration.total_seconds().is_integer():
-            message = f"period_duration must be a whole number of seconds, got {period_duration.total_seconds()} s"
-            raise ValueError(message)
-        if is_52_week_years and start_time.isocalendar().week == 53:  #  original: assert start_time.isocalendar().week != 53  # noqa: PLR2004
+            msg = f"period_duration must be a whole number of seconds, got {period_duration.total_seconds()} s"
+            raise ValueError(msg)
+        if is_52_week_years and start_time.isocalendar().week == 53:  # noqa: PLR2004
             raise ValueError("Week of start_time must not be 53 when is_52_week_years is True.")
         self._check_type(num_periods, int)
         self._start_time = start_time
@@ -84,7 +84,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
     def __repr__(self) -> str:
         """Return a string representation of the FixedFrequencyTimeIndex."""
         return (
-            f"FixedFrequencyTimeIndex("
+            f"{type(self).__name__}("
             f"start_time={self._start_time}, "
             f"period_duration={self._period_duration}, "
             f"num_periods={self._num_periods}, "
@@ -126,7 +126,13 @@ class FixedFrequencyTimeIndex(TimeIndex):
         return self._num_periods == 1 and self._extrapolate_first_point == self._extrapolate_last_point is True
 
     def is_whole_years(self) -> bool:
-        """Return True if index covers one or more full years."""
+        """
+        Return True if index covers one or more full years.
+
+        The start_time must be the first week and weekday of a year. For real ISO time,
+        the stop_time must also be the first week and weekday of a year. For 52-week years,
+        the total duration must be an integer number of 52-week years.
+        """
         start_time = self.get_start_time()
         start_year, start_week, start_weekday = start_time.isocalendar()
         if not start_week == start_weekday == 1:
@@ -137,7 +143,9 @@ class FixedFrequencyTimeIndex(TimeIndex):
             num_periods = self.get_num_periods()
             stop_time = start_time + num_periods * period_duration
             stop_year, stop_week, stop_weekday = stop_time.isocalendar()
-            assert stop_year >= start_year
+            if stop_year < start_year:
+                msg = f"Stop year must be after start year. Current stop year: {stop_year} and start year: {start_year}"
+                raise ValueError(msg)
             return stop_week == stop_weekday == 1
 
         period_duration = self.get_period_duration()
@@ -150,7 +158,6 @@ class FixedFrequencyTimeIndex(TimeIndex):
         """Get the reference period (only if is_whole_years() is True)."""
         if self.is_whole_years():
             start_year = self.get_start_time().isocalendar().year
-
             if self._is_52_week_years:
                 num_years = (self.get_num_periods() * self.get_period_duration()) // timedelta(weeks=52)
             else:
@@ -195,7 +202,14 @@ class FixedFrequencyTimeIndex(TimeIndex):
 
     def get_period_average(self, vector: NDArray, start_time: datetime, duration: timedelta, is_52_week_years: bool) -> float:
         """Get the average over the period from the vector."""
-        assert vector.shape == (self.get_num_periods(),)
+        self._check_type(vector, np.ndarray)
+        self._check_type(start_time, datetime)
+        self._check_type(duration, timedelta)
+        self._check_type(is_52_week_years, bool)
+
+        if vector.shape != (self.get_num_periods(),):
+            msg = f"Vector shape {vector.shape} does not match number of periods {self.get_num_periods()} of timeindex ({self})."
+            raise ValueError(msg)
         target_timeindex = FixedFrequencyTimeIndex(
             start_time=start_time,
             period_duration=duration,
@@ -436,7 +450,14 @@ class FixedFrequencyTimeIndex(TimeIndex):
 
     def get_stop_time(self) -> datetime:
         """Get the stop time of the TimeIndex."""
-        return self._start_time + self._period_duration * self._num_periods
+        if not self._is_52_week_years:
+            return self._start_time + self._period_duration * self._num_periods
+
+        return v_ops.calculate_52_week_years_stop_time(
+            start_time=self._start_time,
+            period_duration=self._period_duration,
+            num_periods=self._num_periods,
+        )
 
     def slice(
         self,
@@ -462,6 +483,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
             self._start_time,
             target_index.get_start_time(),
             self._period_duration,
+            self._is_52_week_years,
         )
         transformed_timeindex = self.copy_with(
             start_time=target_index.get_start_time(),
@@ -482,6 +504,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
             self.get_stop_time(),
             target_index.get_stop_time(),
             self._period_duration,
+            self._is_52_week_years,
         )
         transformed_timeindex = self.copy_with(num_periods=self._num_periods - num_periods_to_slice)
         transformed_vector = input_vector[:-num_periods_to_slice]
@@ -505,7 +528,12 @@ class FixedFrequencyTimeIndex(TimeIndex):
         if not self._extrapolate_first_point:
             raise ValueError("Cannot extend start without extrapolation.")
 
-        num_periods_to_extend = self._periods_between(self._start_time, target_timeindex.get_start_time(), self._period_duration)
+        num_periods_to_extend = self._periods_between(
+            self._start_time,
+            target_timeindex.get_start_time(),
+            self._period_duration,
+            self._is_52_week_years,
+        )
         extended_vector = np.concatenate((np.full(num_periods_to_extend, input_vector[0]), input_vector))
 
         transformed_timeindex = self.copy_with(
@@ -527,6 +555,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
             self.get_stop_time(),
             target_timeindex.get_stop_time(),
             self._period_duration,
+            self._is_52_week_years,
         )
         extended_vector = np.concatenate((input_vector, np.full(num_periods_to_extend, input_vector[-1])))
         target_timeindex = self.copy_with(num_periods=self._num_periods + num_periods_to_extend)
@@ -627,27 +656,25 @@ class FixedFrequencyTimeIndex(TimeIndex):
         if target_timeindex.get_start_time() < self._start_time:
             if self._extrapolate_first_point:
                 return self._extend_start(input_vector, target_timeindex)
-            raise ValueError(
-                (
-                    "Cannot write into fixed frequency: incompatible time indices. "
-                    "Start time of the target index is before the start time of the source index "
-                    "and extrapolate_first_point is False.\n"
-                    f"Input timeindex: {self}\n"
-                    f"Target timeindex: {target_timeindex}"
-                ),
+            msg = (
+                "Cannot write into fixed frequency: incompatible time indices. "
+                "Start time of the target index is before the start time of the source index "
+                "and extrapolate_first_point is False.\n"
+                f"Input timeindex: {self}\n"
+                f"Target timeindex: {target_timeindex}"
             )
+            raise ValueError(msg)
         if target_timeindex.get_stop_time() > self.get_stop_time():
             if self._extrapolate_last_point:
                 return self._extend_end(input_vector, target_timeindex)
-            raise ValueError(
-                (
-                    "Cannot write into fixed frequency: incompatible time indices. "
-                    "'stop_time' of the target index is after the 'stop_time' of the source index "
-                    "and 'extrapolate_last_point' is False.\n"
-                    f"Input timeindex: {self}\n"
-                    f"Target timeindex: {target_timeindex}"
-                ),
+            msg = (
+                "Cannot write into fixed frequency: incompatible time indices. "
+                "'stop_time' of the target index is after the 'stop_time' of the source index "
+                "and 'extrapolate_last_point' is False.\n"
+                f"Input timeindex: {self}\n"
+                f"Target timeindex: {target_timeindex}"
             )
+            raise ValueError(msg)
         if target_timeindex.get_start_time() > self.get_start_time():
             return self._slice_start(input_vector, target_timeindex)
 
@@ -655,7 +682,7 @@ class FixedFrequencyTimeIndex(TimeIndex):
             return self._slice_end(input_vector, target_timeindex)
         return target_timeindex, input_vector
 
-    def _periods_between(self, first_time: datetime, second_time: datetime, period_duration: timedelta) -> int:
+    def _periods_between(self, first_time: datetime, second_time: datetime, period_duration: timedelta, is_52_week_years: bool) -> int:
         """
         Calculate the number of periods between two times.
 
@@ -667,6 +694,8 @@ class FixedFrequencyTimeIndex(TimeIndex):
             The second time point.
         period_duration : timedelta
             The duration of each period.
+        is_52_week_years : bool
+            Whether to use 52-week years.
 
         Returns
         -------
@@ -674,7 +703,15 @@ class FixedFrequencyTimeIndex(TimeIndex):
             The number of periods between the two times.
 
         """
-        return abs(first_time - second_time) // period_duration
+        start = min(first_time, second_time)
+        end = max(first_time, second_time)
+        total_period = end - start
+
+        if is_52_week_years:
+            weeks_53 = v_ops._find_all_week_53_periods(start, end)  # noqa: SLF001
+            total_period -= timedelta(weeks=len(weeks_53))
+
+        return abs(total_period) // period_duration
 
     def copy_with(
         self,
@@ -733,9 +770,13 @@ class FixedFrequencyTimeIndex(TimeIndex):
             A new instance with the updated attributes.
 
         """
+        if reference_period is None:
+            raise ValueError("Cannot copy as reference period when provided reference_period is None.")
+
         start_year = reference_period.get_start_year()
         num_years = reference_period.get_num_years()
         start_time = datetime.fromisocalendar(start_year, 1, 1)
+
         if self.is_52_week_years():
             period_duration = timedelta(weeks=52 * num_years)
         else:
@@ -748,8 +789,26 @@ class FixedFrequencyTimeIndex(TimeIndex):
         )
 
     def get_datetime_list(self) -> list[datetime]:
-        """Return list of datetime including stop time."""
-        t = self.get_start_time()
-        n = self.get_num_periods()
-        d = self.get_period_duration()
-        return [t + i * d for i in range(n + 1)]
+        """
+        Return list of datetime including stop time.
+
+        Note: When `is_52_week_years` is True, the returned list will skip any datetimes that fall in week 53.
+        """
+        start_time = self.get_start_time()
+        num_periods = self.get_num_periods()
+        period_duration = self.get_period_duration()
+
+        if not self._is_52_week_years:
+            return [start_time + i * period_duration for i in range(num_periods + 1)]
+
+        datetime_list = []
+        i = 0
+        count = 0
+        while count <= num_periods:
+            current = start_time + i * period_duration
+            if current.isocalendar().week != 53:  # noqa: PLR2004
+                datetime_list.append(current)
+                count += 1
+            i += 1
+
+        return datetime_list

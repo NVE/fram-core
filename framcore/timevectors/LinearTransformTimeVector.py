@@ -40,8 +40,6 @@ class LinearTransformTimeVector(TimeVector):
             reference_period (ReferencePeriod | None, optional): Given reference period if the transformed vector
                                                                  represents average level or mean one profile. Defaults to None.
 
-
-
         """
         self._check_type(timevector, TimeVector)
         self._check_type(scale, float)
@@ -57,6 +55,8 @@ class LinearTransformTimeVector(TimeVector):
         self._is_max_level = is_max_level
         self._is_zero_one_profile = is_zero_one_profile
         self._reference_period = reference_period
+
+        self._check_is_level_or_profile()
 
     def get_vector(self, is_float32: bool) -> NDArray:
         """Get the values of the TimeVector."""

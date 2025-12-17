@@ -27,9 +27,10 @@ if TYPE_CHECKING:
 
 class HydroAggregator(Aggregator):
     """
-    Aggregate hydro modules into two equivalent modules based on the regulation factor, into one regulated and one unregulated module per area.
+    Aggregate HydroModules into two equivalent modules based on the regulation factor, into one regulated and one unregulated module per area.
 
     Aggregation steps (self._aggregate):
+
     1. Group modules based on their power nodes (self._group_modules_by_power_node)
         - Modules with generators are grouped based on their power nodes. You can choose to only group modules for certain power nodes by giving
         self._power_node_members alone or together with self._metakey_power_node. NB! Watershed that crosses power nodes should not be aggregated in two
@@ -59,7 +60,9 @@ class HydroAggregator(Aggregator):
     3b. Make new hydro module and delete original modules from model data.
     4. Add mapping from detailed to aggregated modules to self._aggregation_map.
 
+
     Disaggregation steps (self._disaggregate):
+
     1. Restore original modules from self._original_data. NB! Changes to aggregated modules are lost except for results (TODO)
     2. Move production and filling results from aggregated modules to detailed modules, weighted based on production capacity and reservoir capacity.
         - TODO: Water values, spill, bypass and pumping results are currently ignored in the disaggregation.
@@ -69,15 +72,7 @@ class HydroAggregator(Aggregator):
     from the model after the first aggregation. Reservoirs will also be assigned to the power node which has the highest cumulative energy equivalent, so
     this aggregator does not work well for reservoirs that are upstream of multiple power nodes.
 
-    Other comments:
-        - It is recommended to only use the same aggregator type once on the same components of a model. If you want to go from one aggregation level to
-        another, it is better to use model.disaggregate first and then aggregate again. This is to keep the logic simple and avoid complex expressions.
-        We have also logic that recognises if result expressions come from aggregations or disaggregations. When aggregating or disaggregating these,
-        we can go back to the original results rather than setting up complex expressions that for examples aggregates the disaggregated results.
-        - Levels and profiles are aggregated separately, and then combined into attributes.
-        - We have chosen to eagerly evaluate weights for aggregation and disaggregation of levels and profiles. This is a balance between eagerly evaluating
-        everything, and setting up complex expressions. Eagerly evaluating everything would require setting up new timevectors after eager evaluation, which
-        is not ideal. While setting up complex expressions gives expressions that are harder to work with and slower to query from.
+    See Aggregator for general design notes and rules to follow when using Aggregators.
 
     Attributes:
         _metakey_energy_eq_downstream (str): Metadata key for energy equivalent downstream.
@@ -93,6 +88,7 @@ class HydroAggregator(Aggregator):
         _release_capacity_profile (TimeVector | None): If given, use this profile for all aggregated modules' release capacities.
 
     Parent Attributes (see framcore.aggregators.Aggregator):
+
         _is_last_call_aggregate (bool | None): Tracks whether the last operation was an aggregation.
         _original_data (dict[str, Component | TimeVector | Curve | Expr] | None): Original detailed data before aggregation.
         _aggregation_map (dict[str, set[str]] | None): Maps aggregated components to their detailed components. detailed to agg
@@ -128,13 +124,15 @@ class HydroAggregator(Aggregator):
         super().__init__()
         self._check_type(metakey_energy_eq_downstream, str)
         self._check_type(ror_threshold, float)
-        assert ror_threshold >= 0, ValueError(f"ror_threshold must be non-negative, got {ror_threshold}.")
         self._check_type(data_dim, SinglePeriodTimeIndex)
         self._check_type(scen_dim, FixedFrequencyTimeIndex)
         self._check_type(metakey_power_node, (str, type(None)))
         self._check_type(power_node_members, (list, type(None)))
-        if metakey_power_node is not None:
-            assert len(power_node_members) > 0, ValueError("If metakey_power_node is given, power_node_members must also be given.")
+        if ror_threshold < 0:
+            msg = f"ror_threshold must be non-negative, got {ror_threshold}."
+            raise ValueError(msg)
+        if metakey_power_node is not None and len(power_node_members) <= 0:
+            raise ValueError("If metakey_power_node is given, power_node_members must also be given.")
 
         self._metakey_energy_eq_downstream = metakey_energy_eq_downstream
         self._ror_threshold = ror_threshold
@@ -450,7 +448,7 @@ class HydroAggregator(Aggregator):
                     (
                         mm,
                         get_level_value(
-                            data[mm].get_generator().get_energy_eq().get_level() * data[mm].get_release_capacity().get_level(),
+                            data[mm].get_generator().get_energy_equivalent().get_level() * data[mm].get_release_capacity().get_level(),
                             model,
                             "MW",
                             self._data_dim,
@@ -466,7 +464,7 @@ class HydroAggregator(Aggregator):
 
         return ignore_production_capacity_modules
 
-    def _aggregate_groups(  # noqa: C901
+    def _aggregate_groups(  # noqa: C901, PLR0915
         self,
         model: Model,
         upstream_topology: dict[str, list[str]],
@@ -487,10 +485,10 @@ class HydroAggregator(Aggregator):
 
             generator = HydroGenerator(
                 power_node=data[generator_module_names[0]].get_generator().get_power_node(),
-                energy_eq=Conversion(level=ConstantTimeVector(1.0, "kWh/m3", is_max_level=True)),
+                energy_equivalent=Conversion(level=ConstantTimeVector(1.0, "kWh/m3", is_max_level=True)),
                 production=sum_production,
             )
-            energy_eq = generator.get_energy_eq().get_level()
+            energy_eq = generator.get_energy_equivalent().get_level()
 
             # Release capacity
             release_capacities = [data[m].get_release_capacity() for m in generator_module_names if m not in ignore_capacity]
@@ -501,8 +499,10 @@ class HydroAggregator(Aggregator):
                 release_capacities = deepcopy(release_capacities)
                 for rc in release_capacities:
                     rc.set_profile(self._release_capacity_profile)
-            generator_energy_eqs = [data[m].get_generator().get_energy_eq() for m in generator_module_names if m not in ignore_capacity]
+            generator_energy_eqs = [data[m].get_generator().get_energy_equivalent() for m in generator_module_names if m not in ignore_capacity]
             release_capacity_levels = [rc.get_level() * ee.get_level() for rc, ee in zip(release_capacities, generator_energy_eqs, strict=True)]
+            
+            release_capacity_profile = None
             if any(rc.get_profile() for rc in release_capacities):
                 one_profile_max = Expr(src=ConstantTimeVector(1.0, is_zero_one_profile=False), is_profile=True)
                 weights = [get_level_value(rcl, model, "MW", self._data_dim, self._scen_dim, is_max=True) for rcl in release_capacity_levels]
@@ -518,7 +518,7 @@ class HydroAggregator(Aggregator):
                     if inflow:
                         upstream_inflow_levels[m].append(inflow.get_level())
             inflow_level_energy = sum(
-                sum(upstream_inflow_levels[m]) * data[m].get_generator().get_energy_eq().get_level()
+                sum(upstream_inflow_levels[m]) * data[m].get_generator().get_energy_equivalent().get_level()
                 for m in generator_module_names
                 if len(upstream_inflow_levels[m]) > 0
             )
@@ -529,7 +529,7 @@ class HydroAggregator(Aggregator):
             inflow_profile_to_energyinflow = defaultdict(list)
             inflow_level_to_value = dict()
             for m in generator_module_names:
-                m_energy_eq = data[m].get_generator().get_energy_eq().get_level()
+                m_energy_eq = data[m].get_generator().get_energy_equivalent().get_level()
                 m_energy_eq_value = get_level_value(
                     m_energy_eq,
                     db=model,
@@ -597,6 +597,13 @@ class HydroAggregator(Aggregator):
         """Aggregate reservoir fillings if all fillings are not None."""
         sum_filling = None
         if all(filling.get_level() for filling in fillings):
+            if any(not filling.get_profile() for filling in fillings):
+                missing = [member for member, filling in zip(members, fillings, strict=False) if not filling.get_profile()]
+                message = (
+                    "Some reservoir fillings in grouped modules have no profile. Cannot aggregate profiles.",
+                    f"Group: '{group_id}', missing profile for {missing}.",
+                )
+                raise ValueError(message)
             level, profiles, weights = self._get_level_profiles_weights_fillings(model, fillings, energy_eq_downstreams, energy_eq, weight_unit)
             profile = _aggregate_weighted_expressions(profiles, weights)
             sum_filling = StockVolume(level=level, profile=profile)
@@ -760,7 +767,7 @@ class HydroAggregator(Aggregator):
         for det in detailed_keys:
             det_module = data[det]
             release_capacity_level = det_module.get_release_capacity().get_level()
-            generator_energy_eq = det_module.get_generator().get_energy_eq().get_level()
+            generator_energy_eq = det_module.get_generator().get_energy_equivalent().get_level()
             production_weight = get_level_value(
                 release_capacity_level * generator_energy_eq,
                 db=model,

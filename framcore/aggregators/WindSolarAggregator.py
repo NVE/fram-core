@@ -23,9 +23,10 @@ if TYPE_CHECKING:
 
 class _WindSolarAggregator(Aggregator):
     """
-    Aggregate components into groups based on their power nodes.
+    Aggregate Wind and Solar components into groups based on their power nodes.
 
     Aggregation steps (self._aggregate):
+
     1. Group components based on their power nodes (self._group_by_power_node):
     2. Aggregate grouped components into a single aggregated component for each group (self._aggregate_groups):
         - Max_capacity is calculated as the sum of the maximum capacity levels with weighted profiles.
@@ -35,21 +36,15 @@ class _WindSolarAggregator(Aggregator):
     2a. Make new hydro module and delete original components from model data.
     3. Add mapping from detailed to aggregated components to self._aggregation_map.
 
+
     Disaggregation steps (self._disaggregate):
+
     1. Restore original components from self._original_data. NB! Changes to aggregated modules are lost except for results (TODO)
     2. Distribute production from aggregated components back to the original components:
         - Results are weighted based on the weighting method (now only max_capacity supported).
     3. Delete aggregated components from the model.
 
-    Comments:
-        - It is recommended to only use the same aggregator type once on the same components of a model. If you want to go from one aggregation level to
-        another, it is better to use model.disaggregate first and then aggregate again. This is to keep the logic simple and avoid complex expressions.
-        We have also logic that recognises if result expressions come from aggregations or disaggregations. When aggregating or disaggregating these,
-        we can go back to the original results rather than setting up complex expressions that for examples aggregates the disaggregated results.
-        - Levels and profiles are aggregated separately, and then combined into attributes.
-        - We have chosen to eagerly evaluate weights for aggregation and disaggregation of levels and profiles. This is a balance between eagerly evaluating
-        everything, and setting up complex expressions. Eagerly evaluating everything would require setting up new timevectors after eager evaluation, which
-        is not ideal. While setting up complex expressions gives expressions that are harder to work with and slower to query from.
+    See Aggregator for general design notes and rules to follow when using Aggregators.
 
     Attributes:
         _data_dim (SinglePeriodTimeIndex | None): Data dimension for eager evaluation.
@@ -57,6 +52,7 @@ class _WindSolarAggregator(Aggregator):
         _grouped_components (dict[str, set[str]]): Mapping of aggregated components to their detailed components.  agg to detailed
 
     Parent Attributes (see framcore.aggregators.Aggregator):
+
         _is_last_call_aggregate (bool | None): Tracks whether the last operation was an aggregation.
         _original_data (dict[str, Component | TimeVector | Curve | Expr] | None): Original detailed data before aggregation.
         _aggregation_map (dict[str, set[str]] | None): Maps aggregated components to their detailed components. detailed to agg
@@ -235,9 +231,10 @@ class _WindSolarAggregator(Aggregator):
 
 class WindAggregator(_WindSolarAggregator):
     """
-    Aggregate components into groups based on their power nodes.
+    Aggregate Wind components into groups based on their power nodes.
 
     Aggregation steps (self._aggregate):
+
     1. Group components based on their power nodes (self._group_by_power_node):
     2. Aggregate grouped components into a single aggregated component for each group (self._aggregate_groups):
         - Max_capacity is calculated as the sum of the maximum capacity levels with weighted profiles.
@@ -247,28 +244,25 @@ class WindAggregator(_WindSolarAggregator):
     2a. Make new hydro module and delete original components from model data.
     3. Add mapping from detailed to aggregated components to self._aggregation_map.
 
+
     Disaggregation steps (self._disaggregate):
+
     1. Restore original components from self._original_data. NB! Changes to aggregated modules are lost except for results.
     2. Distribute production from aggregated components back to the original components:
         - Results are weighted based on the weighting method (now ony max_capacity supported).
     3. Delete aggregated components from the model.
 
-    Comments:
-        - It is recommended to only use the same aggregator type once on the same components of a model. If you want to go from one aggregation level to
-        another, it is better to use model.disaggregate first and then aggregate again. This is to keep the logic simple and avoid complex expressions.
-        We have also logic that recognises if result expressions come from aggregations or disaggregations. When aggregating or disaggregating these,
-        we can go back to the original results rather than setting up complex expressions that for examples aggregates the disaggregated results.
-        - Levels and profiles are aggregated separately, and then combined into attributes.
-        - We have chosen to eagerly evaluate weights for aggregation of levels and profiles, and disaggregation. This is a balance between eagerly evaluating
-        everything, and setting up complex expressions. Eagerly evaluating everything would require setting up new timevectors after eager evaluation, which
-        is not ideal. While setting up complex expressions gives expressions that are harder to work with and slower to query from.
+
+    See Aggregator for general design notes and rules to follow when using Aggregators.
 
     Attributes:
         _data_dim (SinglePeriodTimeIndex | None): Data dimension for eager evaluation.
         _scen_dim (FixedFrequencyTimeIndex | None): Scenario dimension for eager evaluation.
         _grouped_components (dict[str, set[str]]): Mapping of aggregated components to their detailed components.  agg to detailed
 
+
     Parent Attributes (see framcore.aggregators.Aggregator):
+
         _is_last_call_aggregate (bool | None): Tracks whether the last operation was an aggregation.
         _original_data (dict[str, Component | TimeVector | Curve | Expr] | None): Original detailed data before aggregation.
         _aggregation_map (dict[str, set[str]] | None): Maps aggregated components to their detailed components. detailed to agg
@@ -280,9 +274,10 @@ class WindAggregator(_WindSolarAggregator):
 
 class SolarAggregator(_WindSolarAggregator):
     """
-    Aggregate components into groups based on their power nodes.
+    Aggregate Solar components into groups based on their power nodes.
 
     Aggregation steps (self._aggregate):
+
     1. Group components based on their power nodes (self._group_by_power_node):
     2. Aggregate grouped components into a single aggregated component for each group (self._aggregate_groups):
         - Max_capacity is calculated as the sum of the maximum capacity levels with weighted profiles.
@@ -292,28 +287,25 @@ class SolarAggregator(_WindSolarAggregator):
     2a. Make new hydro module and delete original components from model data.
     3. Add mapping from detailed to aggregated components to self._aggregation_map.
 
+
     Disaggregation steps (self._disaggregate):
+
     1. Restore original components from self._original_data. NB! Changes to aggregated modules are lost except for results.
     2. Distribute production from aggregated components back to the original components:
         - Results are weighted based on the weighting method (now ony max_capacity supported).
     3. Delete aggregated components from the model.
 
-    Comments:
-        - It is recommended to only use the same aggregator type once on the same components of a model. If you want to go from one aggregation level to
-        another, it is better to use model.disaggregate first and then aggregate again. This is to keep the logic simple and avoid complex expressions.
-        We have also logic that recognises if result expressions come from aggregations or disaggregations. When aggregating or disaggregating these,
-        we can go back to the original results rather than setting up complex expressions that for examples aggregates the disaggregated results.
-        - Levels and profiles are aggregated separately, and then combined into attributes.
-        - We have chosen to eagerly evaluate weights for aggregation of levels and profiles, and disaggregation. This is a balance between eagerly evaluating
-        everything, and setting up complex expressions. Eagerly evaluating everything would require setting up new timevectors after eager evaluation, which
-        is not ideal. While setting up complex expressions gives expressions that are harder to work with and slower to query from.
+
+    See Aggregator for general design notes and rules to follow when using Aggregators.
 
     Attributes:
         _data_dim (SinglePeriodTimeIndex | None): Data dimension for eager evaluation.
         _scen_dim (FixedFrequencyTimeIndex | None): Scenario dimension for eager evaluation.
         _grouped_components (dict[str, set[str]]): Mapping of aggregated components to their detailed components.  agg to detailed
 
+
     Parent Attributes (see framcore.aggregators.Aggregator):
+
         _is_last_call_aggregate (bool | None): Tracks whether the last operation was an aggregation.
         _original_data (dict[str, Component | TimeVector | Curve | Expr] | None): Original detailed data before aggregation.
         _aggregation_map (dict[str, set[str]] | None): Maps aggregated components to their detailed components. detailed to agg

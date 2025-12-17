@@ -56,7 +56,7 @@ def get_node_to_commodity(data: dict[str, object]) -> dict[str, str]:
     return out
 
 
-def get_flow_infos(flow: Flow, node_to_commodity: dict[str, str]) -> list[FlowInfo]:
+def get_flow_infos(flow: Flow, node_to_commodity: dict[str, str]) -> list[FlowInfo]:  # noqa: C901
     """Get flow infos from analysis of all its arrows."""
     _check_type(flow, Flow)
     _check_type(node_to_commodity, dict)
@@ -149,8 +149,8 @@ def get_flow_infos(flow: Flow, node_to_commodity: dict[str, str]) -> list[FlowIn
 
 
 def get_component_to_nodes(data: Model | dict[str, object]) -> dict[str, set[str]]:
-    """For each str key in data where value is a Comonent find all Node id str in data directly connected to the Component."""
-    from framcore import Model  # noqa: PLC0415
+    """For each str key in data where value is a Component find all Node id str in data directly connected to the Component."""
+    from framcore import Model
 
     _check_type(data, Model | dict)
 
@@ -184,7 +184,7 @@ def get_component_to_nodes(data: Model | dict[str, object]) -> dict[str, set[str
 
 def get_transports_by_commodity(data: Model | dict[str, object], commodity: str) -> dict[str, tuple[str, str]]:
     """Return dict with key component_id and value (from_node_id, to_node_id) where both nodes belong to given commodity."""
-    from framcore import Model  # noqa: PLC0415
+    from framcore import Model
 
     _check_type(data, Model | dict)
     _check_type(commodity, str)

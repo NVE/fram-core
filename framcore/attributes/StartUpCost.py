@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 
 class StartUpCost(Base):
-    """StartUpCost class representing the startup cost of a Component."""
+    """Represent the costs associated with starting up the operation of a Component."""
+
+    # TODO: Complete description
 
     def __init__(
         self,
@@ -20,7 +22,16 @@ class StartUpCost(Base):
         start_hours: Hours,
         part_load_efficiency: Efficiency,
     ) -> None:
-        """Initialize the StartUpCost class."""
+        """
+        Initialize the StartUpCost class.
+
+        Args:
+            startup_cost (Cost): _description_
+            min_stable_load (Proportion): _description_
+            start_hours (Hours): _description_
+            part_load_efficiency (Efficiency): _description_
+
+        """
         self._check_type(startup_cost, Cost)
         self._check_type(min_stable_load, Proportion)
         self._check_type(start_hours, Hours)
@@ -46,7 +57,7 @@ class StartUpCost(Base):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Get all loaders stored in attributes."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self.get_startupcost())
         add_loaders_if(loaders, self._start_hours)

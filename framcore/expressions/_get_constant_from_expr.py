@@ -215,16 +215,6 @@ def _is_fastpath_product(expr: Expr) -> bool:
     return all(arg.is_leaf() or _is_fastpath_sum(arg) for arg in args)
 
 
-def _is_fastpath_sum(expr: Expr) -> bool:
-    """x1 + x2 + .. + xn where x is leaf and n >= 1."""
-    if expr.is_leaf():
-        return True
-    ops, args = expr.get_operations(expect_ops=True, copy_list=False)
-    if ops[0] not in "+-":
-        return False
-    return all(arg.is_leaf() for op, arg in zip(ops, args[1:], strict=True))
-
-
 def _is_fastpath_sum_of_products(expr: Expr) -> bool:
     """E.g. x1 * (x2 + x3) + x4 * x5 where x is leaf."""
     if expr.is_leaf():
@@ -344,19 +334,23 @@ def _fastpath_aggregation(  # noqa: C901, PLR0911
             return num_value / dem_value
         return get_unit_conversion_factor(combined_unit, target_unit) * (num_value / dem_value)
 
-    combined_num_unit = ""
+    new_constants_with_units = dict()
+
+    combined_num = ""
     for unit, value in num.items():
-        op = "+" if value > 0 else "-"
-        combined_num_unit = f"{combined_num_unit} {op} {abs(value)}"
+        sym = f"x{len(new_constants_with_units)}"
+        new_constants_with_units[sym] = (sym, value, unit)
+        combined_num = f"{combined_num} + {sym}"
 
-    combined_dem_unit = ""
-    for unit, value in num.items():
-        op = "+" if value > 0 else "-"
-        combined_dem_unit = f"{combined_dem_unit} {op} {abs(value)}"
+    combined_dem = ""
+    for unit, value in dem.items():
+        sym = f"x{len(new_constants_with_units)}"
+        new_constants_with_units[sym] = (sym, value, unit)
+        combined_dem = f"{combined_dem} + {sym}"
 
-    combined_unit = f"({combined_num_unit})/({combined_dem_unit})"
+    combined = f"({combined_num})/({combined_dem})"
 
-    return get_unit_conversion_factor(combined_unit, target_unit)
+    return _sympy_fallback(new_constants_with_units, combined, target_unit)
 
 
 def _get_fastpath_sum_dict(

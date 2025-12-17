@@ -7,11 +7,9 @@ if TYPE_CHECKING:
 
 
 class TargetBound:
-    """
-    Represents a target bound attribute.
+    """Target boundary attribute. Can be penalized if deviation from target."""
 
-    This class can be extended to define specific bounds for targets in the energy model.
-    """
+    # TODO: Implement and comment
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in attributes to loaders."""

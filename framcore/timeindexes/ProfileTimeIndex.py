@@ -29,7 +29,9 @@ class ProfileTimeIndex(FixedFrequencyTimeIndex):
             num_periods = (stop_time - start_time).total_seconds() / period_duration.total_seconds()
         else:
             num_periods = timedelta(weeks=52 * num_years).total_seconds() / period_duration.total_seconds()
-        assert num_periods.is_integer()
+        if not num_periods.is_integer():
+            msg = f"Number of periods derived from input arguments must be an integer/whole number. Got {num_periods}."
+            raise ValueError(msg)
         num_periods = int(num_periods)
         super().__init__(
             start_time=start_time,

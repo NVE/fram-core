@@ -19,7 +19,9 @@ class Arrow(Base):
     """
     Arrow class is used by Flows to represent contribution of its commodity to Nodes.
 
-    coefficient = conversion * (1 / efficiency) * (1 - loss)
+    The Arrow has direction to determine input or output (is_ingoing), and parameters for the contribution of the Flow to the Node.
+    The main parameters are conversion, efficiency and loss which together form the coefficient = conversion * (1 / efficiency) * (1 - loss)
+    Arrow has its own implementation of get_scenario_vector and get_data_value to calculate the coefficient shown above.
     """
 
     def __init__(
@@ -102,7 +104,7 @@ class Arrow(Base):
         """Get set of units behind conversion level expr (if any)."""
         if self._conversion is None:
             return set()
-        return self._conversion.get_level_unit_set()
+        return self._conversion.get_level_unit_set(db)
 
     def get_profile_timeindex_set(
         self,
@@ -125,7 +127,7 @@ class Arrow(Base):
             s.update(self._efficiency.get_profile_timeindex_set(db))
         return s
 
-    def get_scenario_vector(
+    def get_scenario_vector(  # noqa: C901, PLR0915
         self,
         db: QueryDB | Model,
         scenario_horizon: FixedFrequencyTimeIndex,
@@ -298,7 +300,7 @@ class Arrow(Base):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in attributes to loaders."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self.get_conversion())
         add_loaders_if(loaders, self.get_loss())

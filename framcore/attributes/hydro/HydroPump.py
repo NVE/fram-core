@@ -6,7 +6,15 @@ from framcore.timevectors import TimeVector
 
 
 class HydroPump(Base):
-    """Pump class representing a hydro pump component."""
+    """
+    Represent a pump associated with a HydroModule.
+
+    The HydroPump can consume power from a power Node to move water upstream between two HydroModules. It has a max power capacity, and mean energy
+    equivalent and water capacity. It can also describe the relationship between head and flow (Q), with min and max head and flow.
+
+    Results for water and power consumption are stored as AvgFlowVolume attributes.
+
+    """
 
     def __init__(
         self,
@@ -14,20 +22,35 @@ class HydroPump(Base):
         from_module: str,
         to_module: str,
         water_capacity: FlowVolume,
-        energy_eq: Conversion,
+        energy_equivalent: Conversion,
         power_capacity: FlowVolume | None = None,
         head_min: Expr | str | TimeVector | None = None,
         head_max: Expr | str | TimeVector | None = None,
         q_min: Expr | str | TimeVector | None = None,
         q_max: Expr | str | TimeVector | None = None,
     ) -> None:
-        """Initialize a hydro pump with power node, modules, capacity, energy equivalent, and optional parameters."""
+        """
+        Initialize a HydroPump object parameters.
+
+        Args:
+            power_node (str): Node to take power from when operating.
+            from_module (str): Source HydroModule to move water from.
+            to_module (str): Destination HydroModule to move water to.
+            water_capacity (FlowVolume): Max pumped water volume given the mean energy equivalent and power capacity.
+            energy_equivalent (Conversion): Mean conversion factor between power consumed and volume of water moved.
+            power_capacity (FlowVolume | None, optional): Max power consumed. Defaults to None.
+            head_min (Expr | str | TimeVector | None, optional): Minimum elevation difference between upstream and downstream water level. Defaults to None.
+            head_max (Expr | str | TimeVector | None, optional): Maximum elevation difference between upstream and downstream water level. Defaults to None.
+            q_min (Expr | str | TimeVector | None, optional): Maximum water flow at head_min. Defaults to None.
+            q_max (Expr | str | TimeVector | None, optional): Maximum water flow at head_max. Defaults to None.
+
+        """
         super().__init__()
         self._check_type(power_node, str)
         self._check_modules(from_module, to_module)  # checks types and that they are not the same.
         self._check_type(water_capacity, FlowVolume)
-        self._check_type(power_capacity, FlowVolume)
-        self._check_type(energy_eq, Conversion)
+        self._check_type(power_capacity, (FlowVolume, type(None)))
+        self._check_type(energy_equivalent, Conversion)
         self._check_type(head_min, (Expr, str, TimeVector, type(None)))
         self._check_type(head_max, (Expr, str, TimeVector, type(None)))
         self._check_type(q_min, (Expr, str, TimeVector, type(None)))
@@ -37,7 +60,7 @@ class HydroPump(Base):
         self._from_module = from_module
         self._to_module = to_module
         self._water_capacity = water_capacity
-        self._energy_eq = energy_eq
+        self._energy_eq = energy_equivalent
         self._power_capacity = power_capacity
 
         self._hmin = ensure_expr(head_min, is_level=True)
@@ -48,7 +71,6 @@ class HydroPump(Base):
         self._water_consumption = AvgFlowVolume()
         self._power_consumption = AvgFlowVolume()
 
-    # TODO: change to water capacity
     def get_water_capacity(self) -> FlowVolume:
         """Get the capacity of the pump unit."""
         return self._water_capacity
@@ -74,7 +96,8 @@ class HydroPump(Base):
         """Get the module to which the pump unit is pumping."""
         return self._to_module
 
-    # TODO: should be split in two
+    # TODO: should be split in two? Keep in mind we check that the to and from modules are not the same. So if we split this user might run into issues if
+    # trying to first set from_module to to_module then change to_module.
     def set_modules(self, from_module: str, to_module: str) -> None:
         """Set the modules for the pump unit."""
         self._check_modules(from_module, to_module)
@@ -104,8 +127,7 @@ class HydroPump(Base):
             raise RuntimeError(message)
 
     # other parameters
-    # TODO: change from eq to equivalent
-    def get_energy_eq(self) -> Conversion:
+    def get_energy_equivalent(self) -> Conversion:
         """Get the energy equivalent of hydro pump."""
         return self._energy_eq
 

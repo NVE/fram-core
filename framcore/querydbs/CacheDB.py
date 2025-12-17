@@ -21,7 +21,7 @@ class CacheDB(QueryDB):
     def set_min_elapsed_seconds(self, value: float) -> None:
         """Values that takes below this threshold to compute, does not get cached."""
         self._check_type(value, float)
-        self._check_float(lower_bound=0.0)
+        self._check_float(value=value, lower_bound=0.0, upper_bound=None)
         self._min_elapsed_seconds = value
 
     def get_min_elapsed_seconds(self) -> float:

@@ -1,3 +1,9 @@
+"""
+Define units used in the system, their handling and conversion rules.
+
+We use SymPy to support unit conversions. Already computed unit conversion factors are cached to minimize redundant calculations.
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -70,14 +76,13 @@ _COLLECT_FASTPATH_DATA = False
 _OBSERVED_UNIT_CONVERSIONS = set()
 
 
-def get_unit_conversion_factor(from_unit: str | None, to_unit: str | None) -> float:
+def get_unit_conversion_factor(from_unit: str | None, to_unit: str | None) -> float:  # noqa C901
     """Get the conversion factor from one unit to another."""
     if from_unit == to_unit:
         return 1.0
 
     if from_unit is None or to_unit is None:
-        message = f"Incompatible units: from_unit {from_unit} to_unit {to_unit}"
-        raise ValueError(message)
+        return _get_unit_conversion_factor_with_none(from_unit, to_unit)
 
     fastpath = _fastpath_get_unit_conversion_factor(from_unit, to_unit)
 
@@ -114,6 +119,21 @@ def get_unit_conversion_factor(from_unit: str | None, to_unit: str | None) -> fl
         _FASTPATH_CONVERSION_FACTORS[(from_unit, to_unit)] = fallback
 
     return fallback
+
+
+def _get_unit_conversion_factor_with_none(from_unit: str | None, to_unit: str | None) -> float:
+    if from_unit:
+        try:
+            return get_unit_conversion_factor(from_unit, "1")
+        except Exception:
+            pass
+    if to_unit:
+        try:
+            return get_unit_conversion_factor("1", to_unit)
+        except Exception:
+            pass
+    message = f"Incompatible units: from_unit {from_unit} to_unit {to_unit}"
+    raise ValueError(message)
 
 
 def _unit_has_no_floats(unit: str) -> bool:

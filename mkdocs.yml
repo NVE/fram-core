@@ -27,9 +27,7 @@ theme:
 
 nav:
   - index.md
-  # - Reference: put back when code reference is ready
-  #     - reference/index.md
-  #     - Aggregators: reference/aggregators.md
+  - reference.md
 
 markdown_extensions:
 - tables
@@ -42,19 +40,11 @@ plugins:
           options:  
             show_submodules: true
             show_root_heading: true
-            show_root_full_path: false
+            show_root_full_path: true
             show_signature_annotations: true
             show_symbol_type_heading: true
             show_symbol_type_toc: true
-            show_source: false
-            pre_render_hooks: []
-            post_render_hooks: []
-            separate_signature: true
-            private_members: false
-            special_members: false
-            undocumented_members: false
-            inherited_members: false
-            inherited_members_exclude: []       
+            show_source: true    
   - mike
   - search
   - macros

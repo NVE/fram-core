@@ -2,7 +2,7 @@
 
 ## About
 
-**fram-core** is the main package in **FRAM** modelling framework. The package contains essential features, interfaces and components for running energy market models in FRAM.
+**fram-core** is the main package in the **FRAM** modelling framework. The package holds the functionality used to describe and manipulate the energy system, handle time series operations, and hold the definition of key interfaces in FRAM.
 
 For package documentation see [fram-core](https://nve.github.io/fram-core). 
 

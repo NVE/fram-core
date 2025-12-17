@@ -19,14 +19,14 @@ class ConstantTimeVector(TimeVector):
         reference_period: ReferencePeriod | None = None,
     ) -> None:
         """
-        Initialize the ListTimeVector class.
+        Initialize the ConstantTimeVector class.
 
         Args:
-            scalar (float): Constant float value of the timevector.
+            scalar (float): Constant float value of the TimeVector.
             unit (str | None): Unit of the value in the vector.
             is_max_level (bool | None): Whether the vector represents the maximum level, average level given a
                                         reference period, or not a level at all.
-            is_zero_one_profile (bool | None): Whether the vector represents aprofile with values between 0 and 1, a
+            is_zero_one_profile (bool | None): Whether the vector represents a profile with values between 0 and 1, a
                                                profile with values averaging to 1 over a given reference period, or is
                                                not a profile.
             reference_period (ReferencePeriod | None, optional): Given reference period if the vector represents average
@@ -39,14 +39,6 @@ class ConstantTimeVector(TimeVector):
         """
         self._scalar = float(scalar)
         self._unit = unit
-
-        if (is_max_level is not None and is_zero_one_profile is not None) or (is_max_level is None and is_zero_one_profile is None):
-            message = (
-                f"Input arguments for {self}: Must have exactly one 'non-None'"
-                "value for is_max_level and is_zero_one_profile. "
-                "A TimeVector is either a level or a profile."
-            )
-            raise ValueError(message)
         self._is_max_level = is_max_level
         self._is_zero_one_profile = is_zero_one_profile
         self._reference_period = reference_period
@@ -57,13 +49,14 @@ class ConstantTimeVector(TimeVector):
         self._check_type(is_zero_one_profile, (bool, type(None)))
         self._check_type(reference_period, (ReferencePeriod, type(None)))
 
+        self._check_is_level_or_profile()
+
     def __repr__(self) -> str:
         """Return the string representation of the ConstantTimeVector."""
         ref_period = None
         if self._reference_period is not None:
             start_year = self._reference_period.get_start_year()
             num_years = self._reference_period.get_num_years()
-            assert num_years > 0
             ref_period = f"{start_year}-{start_year + num_years - 1}"
         unit = f", unit={self._unit}" if self._unit is not None else ""
         ref_period = f", reference_period={ref_period}" if ref_period is not None else ""
@@ -73,7 +66,7 @@ class ConstantTimeVector(TimeVector):
     def __eq__(self, other: object) -> bool:
         """Check equality between two ConstantTimeVector objects."""
         if not isinstance(other, ConstantTimeVector):
-            return NotImplemented
+            return False
         return (
             self._scalar == other._scalar
             and self._unit == other._unit
@@ -88,7 +81,10 @@ class ConstantTimeVector(TimeVector):
 
     def get_expr_str(self) -> str:
         """Simpler representation of self to show in Expr."""
-        return f"{self._scalar} {self._unit if self._unit else ''}"
+        if self._unit:
+            return f"{self._scalar} {self._unit}"
+
+        return f"{self._scalar}"
 
     def get_vector(self, is_float32: bool) -> NDArray:
         """Get the values of the TimeVector."""
@@ -105,11 +101,11 @@ class ConstantTimeVector(TimeVector):
         """Check if the TimeVector is constant."""
         return True
 
-    def is_max_level(self) -> bool:
+    def is_max_level(self) -> bool | None:
         """Check if TimeVector is a level representing maximum Volume/Capacity."""
         return self._is_max_level
 
-    def is_zero_one_profile(self) -> bool:
+    def is_zero_one_profile(self) -> bool | None:
         """Check if TimeVector is a profile with values between zero and one."""
         return self._is_zero_one_profile
 

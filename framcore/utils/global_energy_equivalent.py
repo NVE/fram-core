@@ -28,14 +28,14 @@ def get_hydro_downstream_energy_equivalent(
         pump_to = data[module_name].get_pump().get_to_module()
         energy_equivalent = get_hydro_downstream_energy_equivalent(data, pump_to, power_node)  # continue downstream of pump_to module
         if power_node in (pump_power_node, None):
-            return energy_equivalent - data[module_name].get_pump().get_energy_eq().get_level()  # pumps has negative energy equivalents
+            return energy_equivalent - data[module_name].get_pump().get_energy_equivalent().get_level()  # pumps has negative energy equivalents
         return energy_equivalent
 
     energy_equivalent = 0
     if data[module_name].get_generator():  # hydro generator
         module_power_node = data[module_name].get_generator().get_power_node()
         if power_node in (module_power_node, None):
-            energy_equivalent += data[module_name].get_generator().get_energy_eq().get_level()
+            energy_equivalent += data[module_name].get_generator().get_energy_equivalent().get_level()
     if data[module_name].get_release_to():  # continue from release_to module
         release_to = data[module_name].get_release_to()
         energy_equivalent += get_hydro_downstream_energy_equivalent(data, release_to, power_node)
@@ -44,7 +44,7 @@ def get_hydro_downstream_energy_equivalent(
 
 def set_global_energy_equivalent(data: dict[str, Component | TimeVector | Curve | Expr], metakey_energy_eq_downstream: str) -> None:
     """
-    Loop though data dict and set the downstream energy equivalent for all HydroModules.
+    Loop through data dict and set the downstream energy equivalent for all HydroModules.
 
     Send a warning event if a HydroModule has no downstream energy equivalents.
 

@@ -14,17 +14,7 @@ if TYPE_CHECKING:
 
 
 class ElasticDemand(Base):
-    """
-    ElasticDemand class representing the price elasticity of a demand Component.
-
-    Attributes:
-        _price_elasticity: The price elasticity factor of the demand consumer.
-        _min_price: Lower limit for price elasticity.
-        _normal_price: Price for which the demand is inelastic. If it deviates from this price, the consumer will adjust
-                       it's consumption according to the _price_elasticity factor.
-        _max_price: Upper limit for price elasticity / reservation price level.
-
-    """
+    """ElasticDemand class representing the price elasticity of a demand Component."""
 
     def __init__(
         self,
@@ -33,7 +23,17 @@ class ElasticDemand(Base):
         normal_price: Price,
         max_price: Price,
     ) -> None:
-        """Initialize the ElasticDemand class."""
+        """
+        Initialize the ElasticDemand class.
+
+        Args:
+            price_elasticity (Elasticity): The price elasticity factor of the demand consumer.
+            min_price (Price): Lower limit for price elasticity.
+            normal_price (Price): Price for which the demand is inelastic. If it deviates from this price, the consumer will adjust
+                                  it's consumption according to the _price_elasticity factor.
+            max_price (Price): Upper limit for price elasticity / reservation price level.
+
+        """
         self._check_type(price_elasticity, Elasticity)
         self._check_type(min_price, Price)
         self._check_type(normal_price, Price)
@@ -82,7 +82,7 @@ class ElasticDemand(Base):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in attributes to loaders."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self._normal_price)
         add_loaders_if(loaders, self._price_elasticity)

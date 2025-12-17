@@ -6,7 +6,7 @@ def get_supported_components(
     supported_types: tuple[type[Component]],
     forbidden_types: tuple[type[Component]],
 ) -> dict[str, Component]:
-    """Return simplified version of components in compliance with specified component types."""
+    """Return simplified version of components in compliance with specified component types.See description in Component."""
     output: dict[str, Component] = {}
     errors: list[str] = []
 

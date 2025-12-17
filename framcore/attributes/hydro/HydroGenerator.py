@@ -7,30 +7,48 @@ from framcore.timevectors import TimeVector
 
 
 class HydroGenerator(Base):
-    """Generator class representing a hydro generator component."""
+    """
+    Produces power from the main release of a HydroModule.
+
+    Produces to a power node, and can have variable costs associated with operation. Other attributes are energy equivalent, PQ curve, nominal head
+    and tailwater elevation.
+
+    """
 
     def __init__(
         self,
         power_node: str,
-        energy_eq: Conversion,  # energy equivalent
+        energy_equivalent: Conversion,  # energy equivalent
         pq_curve: Expr | str | Curve | None = None,
         nominal_head: Expr | str | TimeVector | None = None,
         tailwater_elevation: Expr | str | TimeVector | None = None,
         voc: Cost | None = None,
         production: AvgFlowVolume | None = None,
     ) -> None:
-        """Initialize a hydro generator with power node, energy equivalent, and optional parameters."""
+        """
+        Initialize a HydroGenerator with parameters.
+
+        Args:
+            power_node (str): Node to supply power to.
+            energy_equivalent (Conversion): Conversion factor of power produced to water released.
+            pq_curve (Expr | str | Curve | None, optional): Expression or curve describing the relationship produced power and water released. Defaults to None.
+            nominal_head (Expr | str | TimeVector | None, optional): Vertical distance between upstream and dowstream water level. Defaults to None.
+            tailwater_elevation (Expr | str | TimeVector | None, optional): Elevation at the surface where the water exits the turbine. Defaults to None.
+            voc (Cost | None, optional): Variable operational costs. Defaults to None.
+            production (AvgFlowVolume | None, optional): Result of power volume produced. Defaults to None.
+
+        """
         super().__init__()
 
         self._check_type(power_node, str)
-        self._check_type(energy_eq, Conversion)
+        self._check_type(energy_equivalent, Conversion)
         self._check_type(pq_curve, (Expr, str, Curve, type(None)))
         self._check_type(nominal_head, (Expr, str, TimeVector, type(None)))
         self._check_type(tailwater_elevation, (Expr, str, TimeVector, type(None)))
         self._check_type(voc, (Cost, type(None)))
 
         self._power_node = power_node
-        self._energy_eq = energy_eq
+        self._energy_eq = energy_equivalent
         self._pq_curve = ensure_expr(pq_curve)
         self._nominal_head = ensure_expr(nominal_head, is_level=True)
         self._tailwater_elevation = ensure_expr(tailwater_elevation, is_level=True)
@@ -49,8 +67,7 @@ class HydroGenerator(Base):
         self._check_type(power_node, str)
         self._power_node = power_node
 
-    # TODO: change from eq to equivalent
-    def get_energy_eq(self) -> Conversion:
+    def get_energy_equivalent(self) -> Conversion:
         """Get the energy equivalent of the hydro generator."""
         return self._energy_eq
 

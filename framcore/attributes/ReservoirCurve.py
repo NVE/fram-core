@@ -9,26 +9,12 @@ if TYPE_CHECKING:
 
 
 class ReservoirCurve(Base):
-    """
-    Represents a reservoir curve attribute.
+    """Water level elevation to water volume characteristics for HydroStorage."""
 
-    Attributes
-    ----------
-    _value : str | None
-        The value representing the reservoir curve.
-
-    """
+    # TODO: Implement and comment, also too generic name
 
     def __init__(self, value: str | None) -> None:
-        """
-        Initialize a ReservoirCurve instance.
-
-        Parameters
-        ----------
-        value : str | None
-            The value representing the reservoir curve.
-
-        """
+        """Initialize a ReservoirCurve instance."""
         self._check_type(value, (str, type(None)))
         self._value = value
 

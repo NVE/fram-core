@@ -6,8 +6,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from framcore.fingerprints import Fingerprint
-from framcore.timeindexes import FixedFrequencyTimeIndex
-from framcore.timeindexes.TimeIndex import TimeIndex  # NB! full import path needed for inheritance to work
+from framcore.timeindexes import FixedFrequencyTimeIndex, TimeIndex
+from framcore.timeindexes._time_vector_operations import period_duration
 
 
 class ListTimeIndex(TimeIndex):
@@ -43,12 +43,18 @@ class ListTimeIndex(TimeIndex):
         """
         dts = datetime_list
         if len(dts) <= 1:
-            message = f"datetime_list must contain more than one element. Got {datetime_list}"
-            raise ValueError(message)
+            msg = f"datetime_list must contain more than one element. Got {datetime_list}"
+            raise ValueError(msg)
         if not all(dts[i] < dts[i + 1] for i in range(len(dts) - 1)):
-            message = f"All elements of datetime_list must be smaller/lower than the succeeding element. Dates must be ordered. Got {datetime_list}."
-            raise ValueError(message)
-        assert len(set(dt.tzinfo for dt in dts if dt is not None)) <= 1
+            msg = f"All elements of datetime_list must be smaller/lower than the succeeding element. Dates must be ordered. Got {datetime_list}."
+            raise ValueError(msg)
+        if len(set(dt.tzinfo for dt in dts if dt is not None)) > 1:
+            msg = f"Datetime objects in datetime_list have differing time zone information: {set(dt.tzinfo for dt in dts if dt is not None)}"
+            raise ValueError(msg)
+        if is_52_week_years and any(dts[i].isocalendar().week == 53 for i in range(len(dts))):  # noqa: PLR2004
+            msg = "When is_52_week_years is True, datetime_list should not contain week 53 datetimes."
+            raise ValueError(msg)
+
         self._datetime_list = datetime_list
         self._is_52_week_years = is_52_week_years
         self._extrapolate_first_point = extrapolate_first_point
@@ -115,27 +121,38 @@ class ListTimeIndex(TimeIndex):
         start_time = self._datetime_list[0]
         stop_time = self._datetime_list[-1]
         start_year, start_week, start_weekday = start_time.isocalendar()
+
+        if not start_weekday == start_week == 1:
+            return False
+
         if self._is_52_week_years:
-            return (start_weekday == 1) and (start_week == 1) and (stop_time == start_time + timedelta(weeks=52))
+            expected_stop_time = start_time + timedelta(weeks=52)
+            if expected_stop_time.isocalendar().week == 53:  # noqa: PLR2004
+                expected_stop_time += timedelta(weeks=1)
+            return stop_time == expected_stop_time
+
         stop_year, stop_week, stop_weekday = stop_time.isocalendar()
-        return (start_year + 1 == stop_year) and (start_weekday == stop_weekday == 1) and (start_week == stop_week == 1)
+        return (start_year + 1 == stop_year) and (stop_weekday == stop_week == 1)
 
     def is_whole_years(self) -> bool:
         """Return True if index covers one or more full years."""
         start_time = self._datetime_list[0]
-        start_year, start_week, start_weekday = start_time.isocalendar()
+        _, start_week, start_weekday = start_time.isocalendar()
+
         if not start_week == start_weekday == 1:
             return False
 
         stop_time = self._datetime_list[-1]
+
         if not self.is_52_week_years():
-            stop_year, stop_week, stop_weekday = stop_time.isocalendar()
-            assert stop_year >= start_year
+            _, stop_week, stop_weekday = stop_time.isocalendar()
             return stop_week == stop_weekday == 1
 
-        seconds_52_week_year = 52 * 168 * 3600
-        num_years = (stop_time - start_time).total_seconds() / seconds_52_week_year
-        return num_years.is_integer()
+        total_period = self.total_duration()
+        total_seconds = int(total_period.total_seconds())
+        seconds_per_year = 52 * 7 * 24 * 3600
+
+        return total_seconds % seconds_per_year == 0
 
     def extrapolate_first_point(self) -> bool:
         """Check if the TimeIndex should extrapolate the first point."""
@@ -147,7 +164,31 @@ class ListTimeIndex(TimeIndex):
 
     def get_period_average(self, vector: NDArray, start_time: datetime, duration: timedelta, is_52_week_years: bool) -> float:
         """Get the average over the period from the vector."""
-        # assert vector.shape == (self.get_num_periods(),), f"Vector shape {vector.shape} does not match timeindex {self}"
+        self._check_type(vector, np.ndarray)
+        self._check_type(start_time, datetime)
+        self._check_type(duration, timedelta)
+        self._check_type(is_52_week_years, bool)
+
+        if vector.shape != (self.get_num_periods(),):
+            msg = f"Vector shape {vector.shape} does not match number of periods {self.get_num_periods()} of timeindex ({self})."
+            raise ValueError(msg)
+
+        if not self.extrapolate_first_point():
+            if start_time < self._datetime_list[0]:
+                msg = f"start_time {start_time} is before start of timeindex {self._datetime_list[0]}, and extrapolate_first_point is False."
+                raise ValueError(msg)
+            if (start_time + duration) < self._datetime_list[0]:
+                msg = f"End time {start_time + duration} is before start of timeindex {self._datetime_list[0]}, and extrapolate_first_point is False."
+                raise ValueError(msg)
+
+        if not self.extrapolate_last_point():
+            if (start_time + duration) > self._datetime_list[-1]:
+                msg = f"End time {start_time + duration} is after end of timeindex {self._datetime_list[-1]}, and extrapolate_last_point is False."
+                raise ValueError(msg)
+            if start_time > self._datetime_list[-1]:
+                msg = f"start_time {start_time} is after end of timeindex {self._datetime_list[-1]}, and extrapolate_last_point is False."
+                raise ValueError(msg)
+
         target_timeindex = FixedFrequencyTimeIndex(
             start_time=start_time,
             period_duration=duration,
@@ -156,6 +197,7 @@ class ListTimeIndex(TimeIndex):
             extrapolate_first_point=self.extrapolate_first_point(),
             extrapolate_last_point=self.extrapolate_last_point(),
         )
+
         target_vector = np.zeros(1, dtype=vector.dtype)
         self.write_into_fixed_frequency(
             target_vector=target_vector,
@@ -170,18 +212,22 @@ class ListTimeIndex(TimeIndex):
         target_timeindex: FixedFrequencyTimeIndex,
         input_vector: NDArray,
     ) -> None:
-        """Write the input vector into the target vector using the target timeindex."""
+        """Write the input vector into the target vector using the target FixedFrequencyTimeIndex."""
+        self._check_type(target_vector, np.ndarray)
+        self._check_type(target_timeindex, FixedFrequencyTimeIndex)
+        self._check_type(input_vector, np.ndarray)
+
         dts: list[datetime] = self._datetime_list
 
-        durations = set(self._microseconds(dts[i + 1] - dts[i]) for i in range(len(dts) - 1))
+        durations = set(self._microseconds(period_duration(dts[i], dts[i + 1], self._is_52_week_years)) for i in range(len(dts) - 1))
         smallest_common_period_duration = functools.reduce(math.gcd, durations)
 
-        num_periods_ff = self._microseconds(dts[-1] - dts[0]) // smallest_common_period_duration
+        num_periods_ff = self._microseconds(self.total_duration()) // smallest_common_period_duration
         input_vector_ff = np.zeros(num_periods_ff, dtype=target_vector.dtype)
 
         i_start_ff = 0
         for i in range(len(dts) - 1):
-            num_periods = self._microseconds(dts[i + 1] - dts[i]) // smallest_common_period_duration
+            num_periods = self._microseconds(period_duration(dts[i], dts[i + 1], self._is_52_week_years)) // smallest_common_period_duration
             i_stop_ff = i_start_ff + num_periods
             input_vector_ff[i_start_ff:i_stop_ff] = input_vector[i]
             i_start_ff = i_stop_ff
@@ -201,9 +247,31 @@ class ListTimeIndex(TimeIndex):
             input_vector=input_vector_ff,
         )
 
+    def total_duration(self) -> timedelta:
+        """
+        Return the total duration covered by the time index.
+
+        Returns
+        -------
+        timedelta
+            The duration from the first to the last datetime in the index, skipping all weeks 53 periods if 52-week time format.
+
+        """
+        start_time = self._datetime_list[0]
+        end_time = self._datetime_list[-1]
+        return period_duration(start_time, end_time, self.is_52_week_years())
+
     def _microseconds(self, duration: timedelta) -> int:
         return int(duration.total_seconds() * 1e6)
 
     def is_constant(self) -> bool:
-        """Check if the time index is constant."""
-        return super().is_constant()
+        """
+        Return True if the time index is constant (single period and both extrapolation flags are True).
+
+        Returns
+        -------
+        bool
+            True if the time index is constant, False otherwise.
+
+        """
+        return self.get_num_periods() == 1 and self.extrapolate_first_point() == self.extrapolate_last_point() is True

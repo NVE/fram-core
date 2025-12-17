@@ -7,13 +7,7 @@ class _WindSolar(_PowerPlant):
     """
     Wind and Solar class component representing a wind and solar power plant. Subclass of PowerPlant.
 
-    This class models a wind or solarpower plant with various attributes inherited from the parent class PowerPlant.
-
-    Capacity can be provided directly or as parts (level or profile). Max and min capacity profiles are set
-    to be equal as the capacity_profile for these technologytypes since it does not have a max or min.
-
-    The functions _get_fingerprints, _get_nodes og _get_flow are defines in this
-    subclass since other subclases are dependent on fuel and emission nodes.
+    This class models a wind or solar power plant with various attributes inherited from the parent class PowerPlant.
     """
 
     def __init__(
@@ -23,7 +17,16 @@ class _WindSolar(_PowerPlant):
         voc: Cost | None = None,
         production: AvgFlowVolume | None = None,
     ) -> None:
-        """Initialize the Wind and Solar class."""
+        """
+        Initialize the Wind and Solar class.
+
+        Args:
+            power_node (str): Reference to a power Node to produce to.
+            max_capacity (FlowVolume): Maximum capacity.
+            voc (Cost | None, optional): Variable operational costs. Defaults to None.
+            production (AvgFlowVolume | None, optional): Actual production. Defaults to None.
+
+        """
         super().__init__(
             power_node=power_node,
             max_capacity=max_capacity,
@@ -56,12 +59,24 @@ class _WindSolar(_PowerPlant):
 
 
 class Wind(_WindSolar):
-    """Wind power component."""
+    """
+    Wind power component.
+
+    Has attributes for power node, capacity, variable operation cost, and production.
+
+    Compatible with WindSolarAggregator.
+    """
 
     pass
 
 
 class Solar(_WindSolar):
-    """Solar power component."""
+    """
+    Solar power component.
+
+    Has attributes for power node, capacity, variable operation cost, and production.
+
+    Compatible with WindSolarAggregator.
+    """
 
     pass

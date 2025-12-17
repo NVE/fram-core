@@ -8,7 +8,31 @@ from framcore.metadata import Meta
 
 
 class Component(Base, ABC):
-    """Component interface class."""
+    """
+    Components describe the main elements in the energy system. Can have additional Attributes and Metadata.
+
+    We have high-level and low-level Components. High-level Components, such as a HydroModule,
+    can be decomposed into low-level Components like Flows and Nodes. The high-level description lets
+    analysts work with recognizable domain objects, while the low-level descriptions enable generic algorithms
+    that minimize code duplication and simplify data manipulation.
+
+    Some energy market models like JulES, SpineOpt and PyPSA also have a generic description of the system,
+    so this two-tier system can be used to easier adapt the dataset to their required formats.
+
+    The method Component.get_simpler_components() is used to decompose high-level Components into low-level
+    Components. This can also be used together with the utility function get_supported_components() to transform
+    a set of Components into a set that only contains supported Component types.
+
+    Result attributes are initialized in the high-level Components. When they are transferred to low-level Components,
+    and the results are set by a model like JulES, the results will also appear in the high-level Components.
+
+    Nodes, Flows and Arrows are the main building blocks in FRAM's low-level representation of energy systems.
+    Node represent a point where a commodity can possibly be traded, stored or pass through.
+    Movement between Nodes is represented by Flows and Arrows. Flows represent a commodity flow,
+    and can have Arrows that each describe contribution of the Flow into a Node.
+    The Arrows have direction to determine input or output, and parameters for the contribution of the
+    Flow to the Node (conversion, efficiency and loss).
+    """
 
     def __init__(self) -> None:
         """Set mandatory private variables."""
@@ -46,7 +70,7 @@ class Component(Base, ABC):
         """
         self._check_type(base_name, str)
         components = self._get_simpler_components(base_name)
-        assert base_name not in components, f"base_name: {base_name}\ncomponent: {self}"
+        assert base_name not in components, f"base_name: {base_name} should not be in \ncomponent: {self}"
         components: dict[str, Component]
         self._check_type(components, dict)
         for name, c in components.items():
@@ -85,7 +109,7 @@ class Component(Base, ABC):
         return parents[-1]
 
     def replace_node(self, old: str, new: str) -> None:
-        """Replace old node with new. Not error if no match."""
+        """Replace old Node with new. Not error if no match."""
         self._check_type(old, str)
         self._check_type(new, str)
         self._replace_node(old, new)

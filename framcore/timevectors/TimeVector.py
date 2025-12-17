@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 # TODO: Floating point precision
 class TimeVector(Base, ABC):
-    """TimeVector interface class."""
+    """TimeVector interface class for defining timeseries data."""
 
     def __init__(self) -> None:
         """Initialize the TimeVector class."""
@@ -50,12 +50,9 @@ class TimeVector(Base, ABC):
     @abstractmethod
     def is_max_level(self) -> bool | None:
         """
-        Check if TimeVector is a level representing max Volume/Capacity.
+        Whether the TimeVector represents the maximum level, average level given a reference period, or not a level at all.
 
-        Returns:
-            True - vector is a level representing max Volume/Capacity.
-            False - vector is a level representing average Volume/Capacity over a given reference period.
-            None - vector is not a level.
+        See LevelProfile for a description of Level (max or avg) and Profile (max one or mean one), and their formats.
 
         """
         pass
@@ -63,12 +60,9 @@ class TimeVector(Base, ABC):
     @abstractmethod
     def is_zero_one_profile(self) -> bool | None:
         """
-        Check if TimeVector is a profile with values between zero and one.
+        Whether the TimeVector represents a profile with values between 0 and 1, a profile with average 1 over a given reference period, or is not a profile.
 
-        Returns:
-            True - vector is a profile with values between zero and one.
-            False - vector is a profile where the mean value is 1 given a reference period.
-            None - vector is not a profile.
+        See LevelProfile for a description of Level (max or avg) and Profile (max one or mean one), and their formats.
 
         """
         pass
@@ -90,5 +84,25 @@ class TimeVector(Base, ABC):
 
     @abstractmethod
     def get_loader(self) -> TimeVectorLoader | None:
-        """Get the TimeVectorLoader of the TimeVector if self has one."""
+        """
+        Get the TimeVectorLoader of the TimeVector if self has one.
+
+        TimeVectors can store timeseries data in Loaders that point to databases. Data is only retrieved and cached when the TimeVector is queried.
+        """
         pass
+
+    """
+    Checks that the TimeVector is either a level or a profile.
+
+    Raises:
+        ValueError: If both is_max_level and is_zero_one_profile are None or both are not None.
+    """
+
+    def _check_is_level_or_profile(self) -> None:
+        """Ensure that the TimeVector is either a level or a profile."""
+        if (self.is_max_level() is not None and self.is_zero_one_profile() is not None) or (self.is_max_level() is None and self.is_zero_one_profile() is None):
+            message = (
+                f"Invalid input arguments for {self}: Must have exactly one 'non-None' value for "
+                "is_max_level and is_zero_one_profile. A TimeVector is either a level or a profile."
+            )
+            raise ValueError(message)

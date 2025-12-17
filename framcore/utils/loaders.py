@@ -20,12 +20,12 @@ def add_loaders_if(loaders: set, value: object | None) -> None:
 
 def add_loaders(loaders: set[Loader], model: Model) -> None:
     """Add all loaders stored in Model to loaders set."""
-    from framcore import Model  # noqa: PLC0415
-    from framcore.components import Component, Flow, Node  # noqa: PLC0415
-    from framcore.curves import Curve  # noqa: PLC0415
-    from framcore.expressions import Expr  # noqa: PLC0415
-    from framcore.timevectors import TimeVector  # noqa: PLC0415
-    from framcore.utils import get_supported_components  # noqa: PLC0415
+    from framcore import Model
+    from framcore.components import Component, Flow, Node
+    from framcore.curves import Curve
+    from framcore.expressions import Expr
+    from framcore.timevectors import TimeVector
+    from framcore.utils import get_supported_components
 
     _check_type(loaders, "loaders", set)
     _check_type(model, "model", Model)
@@ -53,7 +53,7 @@ def add_loaders(loaders: set[Loader], model: Model) -> None:
 
 def replace_loader_path(loaders: set[Loader], old: Path, new: Path) -> None:
     """Replace old path with new for all loaders using old path."""
-    from framcore.loaders import FileLoader  # noqa: PLC0415
+    from framcore.loaders import FileLoader
 
     _check_type(loaders, "loaders", set)
 

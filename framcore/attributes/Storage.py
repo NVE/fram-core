@@ -13,22 +13,34 @@ class Storage(Base):
     """
     Represents all types of storage this system supports.
 
-    Subclasses are supposed to restrict which attributes that are
-    used, not add more.
+    Subclasses are supposed to restrict which attributes that are used, not add more.
     """
 
     def __init__(
         self,
         capacity: StockVolume,
         volume: StockVolume | None = None,
-        loss: Loss | None = None,
+        loss: Loss | None = None,  # TODO: Should be loss percentage per time.
         reservoir_curve: ReservoirCurve | None = None,
         max_soft_bound: SoftBound | None = None,
         min_soft_bound: SoftBound | None = None,
         target_bound: TargetBound | None = None,
         initial_storage_percentage: float | None = None,
     ) -> None:
-        """Create new storage."""
+        """
+        Create new storage.
+
+        Args:
+            capacity (StockVolume): Storage capacity.
+            volume (StockVolume | None, optional): Storage filling (actual/result). Defaults to None.
+            loss (Loss | None, optional): Loss percentage per time. Defaults to None.
+            reservoir_curve (ReservoirCurve | None, optional): Water level elevation to water volume for HydroStorage. Defaults to None.
+            max_soft_bound (SoftBound | None, optional): Upper soft boundary that is penalized if broken. Defaults to None.
+            min_soft_bound (SoftBound | None, optional): Lower soft boundary that is penalized if broken. Defaults to None.
+            target_bound (TargetBound | None, optional): Target filling, can be penalized if deviation. Defaults to None.
+            initial_storage_percentage (float | None, optional): Initial storage filling percentage at start of simulation. Defaults to None.
+
+        """
         super().__init__()
 
         self._check_type(capacity, StockVolume)
@@ -132,7 +144,7 @@ class Storage(Base):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in attributes to loaders."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self.get_capacity())
         add_loaders_if(loaders, self.get_loss())

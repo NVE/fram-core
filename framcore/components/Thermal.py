@@ -2,10 +2,6 @@ from framcore.attributes import Arrow, AvgFlowVolume, Conversion, Cost, Efficien
 from framcore.components import Component, Flow
 from framcore.components._PowerPlant import _PowerPlant
 
-# TODO
-# refactor to use _ensure_flow and _ensure_coeff by using check_type, and possibly other methods
-# add exception to replace_nodes (see implementation in Demand)
-
 
 class Thermal(_PowerPlant):
     """
@@ -13,11 +9,13 @@ class Thermal(_PowerPlant):
 
     This class models a thermal power plant with attributes inherited from PowerPlant.
     Additionally, it includes specific attributes such as:
+
     - fuel node
     - efficiency
     - emission node
     - emission coefficient
     - startup costs
+
 
     This class is compatible with ThermalAggregator.
     """
@@ -27,10 +25,10 @@ class Thermal(_PowerPlant):
         power_node: str,
         fuel_node: str,
         efficiency: Efficiency,
+        max_capacity: FlowVolume,
         emission_node: str | None = None,
         emission_coefficient: Conversion | None = None,
         startupcost: StartUpCost | None = None,
-        max_capacity: FlowVolume | None = None,
         min_capacity: FlowVolume | None = None,
         voc: Cost | None = None,
         production: AvgFlowVolume | None = None,
@@ -46,9 +44,9 @@ class Thermal(_PowerPlant):
             efficiency (Efficiency): Efficiency of the plant.
             emission_node (str | None, optional): Emission node.
             emission_coefficient (Conversion | None, optional): Emission coefficient.
-            startupcost (StartUpCost | None, optional): Startup cost.
-            max_capacity (FlowVolume | None, optional): Maximum capacity.
-            min_capacity (FlowVolume | None, optional): Minimum capacity.
+            startupcost (StartUpCost | None, optional): Cost associated with starting up the Plant.
+            max_capacity (FlowVolume | None, optional): Maximum production capacity.
+            min_capacity (FlowVolume | None, optional): Minimum production capacity.
             voc (Cost | None, optional): Variable operating cost.
             production (AvgFlowVolume | None, optional): Production volume.
             fuel_demand (AvgFlowVolume | None, optional): Fuel demand.
@@ -149,6 +147,12 @@ class Thermal(_PowerPlant):
         return {base_name + "_Flow": self._create_flow()}
 
     def _replace_node(self, old: str, new: str) -> None:
+        existing_nodes = [self._power_node, self._fuel_node]
+        existing_nodes = existing_nodes if self._emission_node is None else [*existing_nodes, self._emission_node]
+        if old not in existing_nodes:
+            message = f"{old} not found in {self}. Expected one of the existing nodes {existing_nodes}."
+            raise ValueError(message)
+
         if self._power_node == old:
             self._power_node = new
         if self._fuel_node == old:

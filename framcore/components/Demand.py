@@ -18,7 +18,21 @@ class Demand(Component):
         temperature_profile: Expr | str | TimeVector | None = None,
         consumption: AvgFlowVolume | None = None,
     ) -> None:
-        """Initialize the Demand class."""
+        """
+        Initialize the Demand class.
+
+        Args:
+            node (str): Node which this Demand consumes power on.
+            capacity (FlowVolume | None, optional): Maximum consumption capacity. Defaults to None.
+            reserve_price (ReservePrice | None, optional): Price in node at which the Demand will stop consumption. Defaults to None.
+            elastic_demand (ElasticDemand | None, optional): Describe changes in consumption based on commodity price in node. Defaults to None.
+            temperature_profile (Expr | str | TimeVector | None, optional): Describe changes in consumption based on temperatures. Defaults to None.
+            consumption (AvgFlowVolume | None, optional): Actual calculated consumption. Defaults to None.
+
+        Raises:
+            ValueError: When both reserve_price and elastic_demand is passed as arguments. This is ambiguous.
+
+        """
         super().__init__()
         self._check_type(node, str)
         self._check_type(capacity, (FlowVolume, type(None)))
@@ -62,9 +76,9 @@ class Demand(Component):
         """Get the reserve price level of the demand component."""
         return self._reserve_price
 
-    def set_reserve_price_level(self, reserve_price: ReservePrice | None) -> None:  # TODO: Update
+    def set_reserve_price(self, reserve_price: ReservePrice | None) -> None:
         """Set the reserve price level of the demand component."""
-        self._check_type(reserve_price, (Expr, type(None)))
+        self._check_type(reserve_price, (ReservePrice, type(None)))
         if self._elastic_demand and reserve_price:
             message = "Cannot set reserve_price when elastic_demand is not None."
             raise ValueError(message)
@@ -78,7 +92,7 @@ class Demand(Component):
         """Set the elastic demand of the demand component."""
         self._check_type(elastic_demand, (ElasticDemand, type(None)))
         if self._reserve_price is not None and elastic_demand is not None:
-            message = "Cannot set elastic_demand when reserve_price_level is not None."
+            message = "Cannot set elastic_demand when reserve_price is not None."
             raise ValueError(message)
         self._elastic_demand = elastic_demand
 

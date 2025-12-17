@@ -16,15 +16,6 @@ class LoadedCurve(Curve):
     """
     Represents a curve loaded from a CurveLoader.
 
-    Attributes
-    ----------
-    _curve_id : str
-        Identifier for the curve.
-    _loader : CurveLoader
-        Loader instance used to retrieve curve data.
-    _reference_period : Any
-        Reference period for the curve (currently not set).
-
     Methods
     -------
     get_unique_name()

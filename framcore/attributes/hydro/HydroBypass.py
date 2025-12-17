@@ -4,14 +4,21 @@ from framcore.fingerprints import Fingerprint
 
 
 class HydroBypass(Base):
-    """Bypass class representing a hydro bypass attribute."""
+    """HydroBypass represents a controlled water way from a HydroModule. Used to bypass main release of the HydroModule."""
 
     def __init__(
         self,
         to_module: str | None,
         capacity: FlowVolume | None = None,
     ) -> None:
-        """Initialize Bypass."""
+        """
+        Initialize object.
+
+        Args:
+            to_module (str | None): Name of the HydroModule the water is released to.
+            capacity (FlowVolume | None, optional): Restrictions on the volume of water which can pass through the bypass at a given moment. Defaults to None.
+
+        """
         super().__init__()
 
         self._check_type(to_module, (str, type(None)))

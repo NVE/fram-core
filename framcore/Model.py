@@ -10,9 +10,12 @@ from framcore.timevectors import TimeVector
 if TYPE_CHECKING:
     from framcore.aggregators import Aggregator
 
+
 class ModelDict(dict):
     """Dict storing only values of type Component | Expr | TimeVector | Curve."""
-    def __setitem__(self, key, value):
+
+    def __setitem__(self, key: str, value: Component | Expr | TimeVector | Curve) -> None:
+        """Set item with type checking."""
         if not isinstance(key, str):
             message = f"Expected str for key {key}, got {type(key).__name__}"
             raise TypeError(message)
@@ -21,16 +24,21 @@ class ModelDict(dict):
             raise TypeError(message)
         return super().__setitem__(key, value)
 
+
 class Model(Base):
     """
-    Model stores the representation of the system with components, timevectors, expression and the aggregators used on the Model.
+    Model stores the representation of the energy system with Components, TimeVectors, Expression, and the Aggregators applied to the Model.
 
-    Aggregators are added to Model when used (Aggregator.aggregate(model)), and can be undone in LIFO order with disaggregate().
+    - Components describe the main elements in the energy system. Can have additional Attributes.
+    - TimeVector and Curve hold the time series data.
+    - Expressions for data manipulation of TimeVectors and Curves. Can be queried.
+    - Aggregators handle aggregation and disaggregation of Components. Aggregators are added to Model when used (Aggregator.aggregate(model)),
+    and can be undone in LIFO order with disaggregate().
 
     Methods:
-        get_data(): Get dict of components, timevectors, expressions and curves stored in the model. Can be modified.
+        get_data(): Get dict of Components, Expressions, TimeVectors and Curves stored in the Model. Can be modified.
+        disaggregate(): Undo all aggregations applied to Model in LIFO order.
         get_content_counts(): Return number of objects stored in model organized into concepts and types.
-        disaggregate(): Undo all aggregations in LIFO order.
 
     """
 
@@ -39,15 +47,15 @@ class Model(Base):
         self._data = ModelDict()
         self._aggregators: list[Aggregator] = []
 
+    def get_data(self) -> ModelDict:
+        """Get dict of Components, Expressions, TimeVectors and Curves stored in the Model. Can be modified."""
+        return self._data
+
     def disaggregate(self) -> None:
-        """Undo all aggregations in LIFO order."""
+        """Undo all aggregations applied to Model in LIFO order."""
         while self._aggregators:
             aggregator = self._aggregators.pop(-1)  # last item
             aggregator.disaggregate(self)
-
-    def get_data(self) -> ModelDict:
-        """Get internal data. Modify this with care."""
-        return self._data
 
     def get_content_counts(self) -> dict[str, Counter]:
         """Return number of objects stored in model organized into concepts and types."""
@@ -80,4 +88,3 @@ class Model(Base):
             counts["aggregators"][type(a).__name__] += 1
 
         return counts
-

@@ -18,17 +18,36 @@ class Aggregator(Base, ABC):
     """
     Aggregator interface class.
 
-    Public API is the aggregate and disaggregate methods.
+    Aggregators handles aggregation and disaggregation of Components.
+    - The general approach for aggregation is to group Components, aggregate Components in the same group to (a) new Component(s),
+    delete the detailed Components, and add the mapping to self._aggregation_map.
+    - The general approach for disaggregation is to restore the detailed Components, move results from aggregated
+    Components to detailed Components, and delete the aggregated Components.
 
-    These methods come with the folloing calling rules:
-    1. Not allowed to call aggregate twice. Must call disaggregate before aggregate can be called again.
-    2. Disaggragate can only be called after aggregate has been called.
+    Concrete Aggregators must implement the abstract methods _aggregate() and _disaggregate().
 
-    Implementations should implement _aggregate and _disaggregate.
-    - The general approach for aggregation is to group components, aggregated components in the same group, delete the detailed components,
-    and add the mapping to self._aggregation_map.
-    - The general approach for disaggregation is to restore the detailed components, move results from aggregated components to detailed components,
-    and delete the aggregated components.
+    Some rules for using Aggregators:
+    1. Disaggragate can only be called after aggregate has been called.
+    2. Not allowed to call aggregate twice. Must call disaggregate before aggregate can be called again.
+    3. Aggregators are stored in Model when aggregate is called. Disaggregate by calling Model.disaggregate(),
+         which will disaggregate all Aggregators in LIFO order.
+    4. At the moment we allow changes to the aggregated Components, which is ignored during disaggregation. TODO: Handle this
+    5. It is recommended to only use the same Aggregator type once on the same components of a Model.
+        If you want to go from one aggregation level to another, it is better to use Model.disaggregate first and then aggregate again.
+        This is to keep the logic simple and avoid complex expressions.
+
+    Some design notes:
+    - Levels and profiles are aggregated separately and then combined into attributes.
+    - We have chosen to eagerly evaluate weights for aggregation (weighted averages) and disaggregation of levels and profiles.
+        This approach supports any form of aggregation by varying the weights, and complex weights can be created by eagerly evaluating
+        expressions and using the result to compute those weights.
+    - This is a balance between eagerly evaluating everything and setting up complex expressions.
+        Eagerly evaluating everything would require setting up new TimeVectors after evaluation, which is not ideal.
+        While setting up complex expressions gives expressions that are harder to work with and slower to query from.
+    - This trade-off simplifies adding logic that recognises if result expressions come from aggregations or disaggregations.
+        When aggregating or disaggregating these, we can go back to the original results rather than setting up complex expressions
+        that for examples aggregates the disaggregated results.
+
     """
 
     def __init__(self) -> None:
@@ -42,7 +61,7 @@ class Aggregator(Base, ABC):
         self._check_type(model, Model)
 
         if self._is_last_call_aggregate is True:
-            message = f"Will overwrite existing aggregation."
+            message = "Will overwrite existing aggregation."
             self.send_warning_event(message)
 
         self._original_data = deepcopy(model.get_data())

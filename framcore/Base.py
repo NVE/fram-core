@@ -1,5 +1,6 @@
 import contextlib
 import inspect
+from collections.abc import Callable
 from typing import Any
 
 from framcore.events import (
@@ -18,9 +19,7 @@ class Base:
     """Core base class to share methods."""
 
     def _check_type(self, value, class_or_tuple) -> None:  # noqa: ANN001
-        if not isinstance(value, class_or_tuple):
-            message = f"Expected {class_or_tuple} for {self}, got {type(value).__name__}"
-            raise TypeError(message)
+        check_type(value, class_or_tuple, caller=self)
 
     def _ensure_float(self, value: object) -> float:
         with contextlib.suppress(Exception):
@@ -140,3 +139,23 @@ class Base:
         except Exception:
             pass
         return type(value).__name__
+
+
+# could not place this in utils and use __init__ as modules in utils also import queries, if queries then import via utils __init__ we get circular imports.
+def check_type(value: object, expected: type | tuple[type], caller: Callable | None = None) -> None:
+    """
+    Check a value matches expected type(s).
+
+    Args:
+        value (object): value being checked.
+        expected (type | tuple[type]): Expected types.
+        caller (Callable): The origin of the check.
+
+    Raises:
+        TypeError: When value does not match expected types.
+
+    """
+    if not isinstance(value, expected):
+        message = f"{expected}, got {type(value).__name__}"
+        message = "Expected " + message if caller is None else f"{caller} expected " + message
+        raise TypeError(message)

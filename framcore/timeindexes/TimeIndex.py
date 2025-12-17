@@ -48,8 +48,7 @@ class TimeIndex(Base, ABC):
         """
         Check if the TimeIndex represents a single year.
 
-        Must be False if
-        extrapolate_first_point and or extrapolate_last_point is True.
+        Must be False if extrapolate_first_point and or extrapolate_last_point is True.
 
         When True, can be repeted in profiles.
         """
@@ -82,7 +81,20 @@ class TimeIndex(Base, ABC):
         target_timeindex: FixedFrequencyTimeIndex,
         input_vector: NDArray,
     ) -> None:
-        """Write the input vector into the target vector based on the target FixedFrequencyTimeIndex."""
+        """
+        Write the input vector into the target vector based on the target FixedFrequencyTimeIndex.
+
+        Main functionality in FRAM to extracts data to the correct time period and resolution.
+        A conversion of the data into a specific time period and resolution follows these steps:
+        - If the TimeIndex is not a FixedFrequencyTimeIndex, convert the TimeIndex and the vector to this format.
+        - Then convert the data according to the target TimeIndex.
+        - It is easier to efficiently do time series operations between FixedFrequencyTimeIndex
+            and we only need to implement all the other conversion functionality once here.
+            For example, converting between 52-week and ISO-time TimeVectors, selecting a period, extrapolation or changing the resolution.
+        - And when we implement a new TimeIndex, we only need to implement the conversion to FixedFrequencyTimeIndex
+            and the rest of the conversion functionality can be reused.
+
+        """
         pass
 
     @abstractmethod

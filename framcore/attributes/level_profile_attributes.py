@@ -10,7 +10,9 @@ from framcore import Base
 from framcore.expressions import (
     Expr,
     ensure_expr,
+    get_leaf_profiles,
     get_level_value,
+    get_profile_exprs_from_leaf_levels,
     get_profile_vector,
     get_timeindexes_from_expr,
     get_units_from_expr,
@@ -27,7 +29,45 @@ if TYPE_CHECKING:
 
 # TODO: Name all abstract classes Abstract[clsname]
 class LevelProfile(Base, ABC):
-    """Attributes representing data the form level * profile + intercept."""
+    """
+    Attributes representing timeseries data for Components. Mostly as Level * Profile, where both Level and Profile are Expr (expressions).
+
+    Level and Profile represent two distinct dimensions of time. This is because we want to simulate future system states with historical weather patterns.
+    Therefore, Level represents the system state at a given time (data_dim), while Profile represents the scenario dimension (scen_dim).
+    A Level would for example represent the installed capacity of solar plants towards 2030,
+    while the Profile would represent the historical variation between 1991-2020.
+
+    Level and Profile can have two main formats: A maximum Level with a Profile that varies between 0-1,
+    and an average Level with a Profile with a mean of 1 (the latter can have a ReferencePeriod).
+    The max format is, for example, used for capacities, while the mean format can be used for prices and flows.
+    The system needs to be able to convert between the two formats. This is especially important for aggregations
+    (for example weighted averages) where all the TimeVectors need to be on the same format for a correct result.
+    One simple example of conversion is pairing a max Level of 100 MW with a mean_one Profile [0, 1, 2].
+    Asking for this on the max format will return the series 100*[0, 0.5, 1] MW, while on the avg format it will return 50*[0, 1, 2] MW.
+
+    Queries to LevelProfile need to provide a database, the desired target TimeIndex for both dimensions, the target unit and the desired format.
+    At the moment we support these queries for LevelProfile:
+    - self.get_data_value(db, scen_dim, data_dim, unit, is_max_level)
+    - self.get_scenario_vector(db, scen_dim, data_dim, unit, is_float32)
+
+    In addition, we have the possibility to shift, scale, and change the intercept of the LevelProfiles.
+    Then we get the full representation: Scale * (Level + Level_shift) * Profile + Intercept.
+    - Level_shift adds a constant value to Level, has the same Profile as Level.
+    - Scale multiplies (Level + Level_shift) by a constant value.
+    - Intercept adds a constant value to LevelProfile, ignoring Level and Profile. **This is the only way of supporting a timeseries that crosses zero
+        in our system. This functionality is under development and has not been properly tested.**
+
+    LevelProfiles also have additional properties that describes their behaviour. These can be used for initialization, validation,
+    and to simplify queries. The properties are:
+    - is_stock: True if attribute is a stock variable. Level Expr should also have is_stock=True. See Expr for details.
+    - is_flow: True if attribute is a flow variable. Level Expr should also have is_flow=True. See Expr for details.
+    - is_not_negative: True if attribute is not allowed to have negative values. Level Expr should also have only non-negative values.
+    - is_max_and_zero_one: Preferred format of Level and Profile. Used for initialization and queries.
+    - is_ingoing: True if attribute is ingoing, False if outgoing, None if neither.
+    - is_cost: True if attribute is objective function cost coefficient. Else None.
+    - is_unitless: True if attribute is known to be unitless. False if known to have a unit that is not None. Else None.
+
+    """
 
     # must be overwritten by subclass when otherwise
     # don't change the defaults
@@ -52,7 +92,24 @@ class LevelProfile(Base, ABC):
         intercept: Expr | None = None,
         scale: Expr | None = None,
     ) -> None:
-        """Validate all Expr fields."""
+        """
+        Initialize LevelProfile.
+
+        See the LevelProfile class docstring for details. A complete LevelProfile is represented as:
+        Scale * (Level + Level_shift) * Profile + Intercept. Normally only Level and Profile are used.
+
+        Either give level and profile, or value and unit.
+
+        Args:
+            level (Expr | TimeVector | str | None, optional): Level Expr. Defaults to None.
+            profile (Expr | TimeVector | str | None, optional): Profile Expr. Defaults to None.
+            value (float | int | None, optional): A constant value to initialize Level. Defaults to None.
+            unit (str | None, optional): Unit of the constant value to initialize Level. Defaults to None.
+            level_shift (Expr | None, optional): Level_shift Expr. Defaults to None.
+            intercept (Expr | None, optional): Intercept Expr. Defaults to None.
+            scale (Expr | None, optional): Scale Expr. Defaults to None.
+
+        """
         self._assert_invariants()
 
         self._check_type(value, (float, int, type(None)))
@@ -62,11 +119,18 @@ class LevelProfile(Base, ABC):
         self._check_type(level_shift, (Expr, type(None)))
         self._check_type(intercept, (Expr, type(None)))
         self._check_type(scale, (Expr, type(None)))
-        self._level = self._ensure_level_expr(level, value, unit)
-        self._profile = self._ensure_profile_expr(profile)
-        self._level_shift: Expr | None = None
-        self._intercept: Expr | None = None
-        self._scale: Expr | None = None
+        level = self._ensure_level_expr(level, value, unit)
+        profile = self._ensure_profile_expr(profile)
+        self._ensure_compatible_level_profile_combo(level, profile)
+        self._ensure_compatible_level_profile_combo(level_shift, profile)
+        self._level: Expr | None = level
+        self._profile: Expr | None = profile
+        self._level_shift: Expr | None = level_shift
+        self._intercept: Expr | None = intercept
+        self._scale: Expr | None = scale
+        # TODO: Validate that profiles are equal in level and level_shift.
+        # TODO: Validate that level_shift, scale and intercept only consist of Exprs with ConstantTimeVectors
+        # TODO: Validate that level_shift, level_scale and intercept have correct Expr properties
 
     def _assert_invariants(self) -> None:
         abstract = self._IS_ABSTRACT
@@ -101,7 +165,7 @@ class LevelProfile(Base, ABC):
 
     def add_loaders(self, loaders: set[Loader]) -> None:
         """Add all loaders stored in expressions to loaders."""
-        from framcore.utils import add_loaders_if  # noqa: PLC0415
+        from framcore.utils import add_loaders_if
 
         add_loaders_if(loaders, self.get_level())
         add_loaders_if(loaders, self.get_profile())
@@ -217,7 +281,7 @@ class LevelProfile(Base, ABC):
                 is_flow=level.is_flow(),
                 is_level=True,
                 is_profile=False,
-                profile=self._profile,  # TODO: not always?
+                profile=self._profile,
             )
 
         if self._level_shift is not None:
@@ -229,18 +293,22 @@ class LevelProfile(Base, ABC):
         return level
 
     def set_level(self, level: Expr | TimeVector | str | None) -> None:
-        """Set level part of (level * profile + intercept)."""
+        """Set level part of (scale * (level + level_shift) * profile + intercept)."""
         self._check_type(level, (Expr, TimeVector, str, type(None)))
-        self._level = self._ensure_level_expr(level)
+        level = self._ensure_level_expr(level)
+        self._ensure_compatible_level_profile_combo(level, self._profile)
+        self._level = level
 
     def get_profile(self) -> Expr | None:
         """Get profile part of (level * profile + intercept)."""
         return self._profile
 
     def set_profile(self, profile: Expr | TimeVector | str | None) -> None:
-        """Set profile part of (level * profile + intercept)."""
+        """Set profile part of (scale * (level + level_shift) * profile + intercept)."""
         self._check_type(profile, (Expr, TimeVector, str, type(None)))
-        self._profile = self._ensure_profile_expr(profile)
+        profile = self._ensure_profile_expr(profile)
+        self._ensure_compatible_level_profile_combo(self._level, profile)
+        self._profile = profile
 
     def get_intercept(self) -> Expr | None:
         """Get intercept part of (level * profile + intercept)."""
@@ -291,7 +359,22 @@ class LevelProfile(Base, ABC):
         unit: str | None,
         is_float32: bool = True,
     ) -> NDArray:
-        """Return vector with values along the given scenario horizon using level over level_period."""
+        """
+        Evaluate LevelProfile over the periods in scenario dimension, and at the level period of the data dimension.
+
+        Underlying profiles are evalutated over the scenario dimension,
+        and levels are evalutated to scalars over level_period in the data dimension.
+
+        Args:
+            db (QueryDB | Model): The database or model instance used to fetch the required data.
+            scenario_horizon (FixedFrequencyTimeIndex): TimeIndex of the scenario dimension to evaluate profiles.
+            level_period (SinglePeriodTimeIndex): TimeIndex of the data dimension to evaluate levels.
+            unit (str | None): The unit to convert the resulting values into (e.g., MW, GWh). If None,
+                the expression should be unitless.
+            is_float32 (bool, optional): Whether to return the vector as a NumPy array with `float32`
+                precision. Defaults to True.
+
+        """
         return self._get_scenario_vector(db, scenario_horizon, level_period, unit, is_float32)
 
     def get_data_value(
@@ -302,11 +385,23 @@ class LevelProfile(Base, ABC):
         unit: str | None,
         is_max_level: bool | None = None,
     ) -> float:
-        """Return float for level_period."""
+        """
+        Evaluate LevelProfile to a scalar at the level period of the data dimension, and as an average over the scenario horizon.
+
+        Args:
+            db (QueryDB | Model): The database or model instance used to fetch the required data.
+            scenario_horizon (FixedFrequencyTimeIndex): TimeIndex of the scenario dimension to evaluate profiles.
+            level_period (SinglePeriodTimeIndex): TimeIndex of the data dimension to evaluate levels.
+            unit (str | None): The unit to convert the resulting values into (e.g., MW, GWh). If None,
+                the expression should be unitless.
+            is_max_level (bool | None, optional): Whether to evaluate the expression as a maximum level (with a zero_one profile)
+                or as an average level (with a mean_one profile). If None, the default format of the attribute is used.
+
+        """
         return self._get_data_value(db, scenario_horizon, level_period, unit, is_max_level)
 
     def shift_intercept(self, value: float, unit: str | None) -> None:
-        """Modify the intercept part of (level*profile + intercept) of an attribute by adding a constant value."""
+        """Modify the intercept part of (level * profile + intercept) of an attribute by adding a constant value."""
         expr = ensure_expr(
             ConstantTimeVector(self._ensure_float(value), unit=unit, is_max_level=False),
             is_level=True,
@@ -326,9 +421,10 @@ class LevelProfile(Base, ABC):
         unit: str | None = None,
         reference_period: ReferencePeriod | None = None,
         is_max_level: bool | None = None,
-        use_profile: bool = False,
+        use_profile: bool = True,  # TODO: Remove. Should always use profile. If has profile validate that it is equal to the profile of Level.
     ) -> None:
-        """Modify the level part of (level*profile + intercept) of an attribute by adding a constant value."""
+        """Modify the level_shift part of (scale * (level + level_shift) * profile + intercept) of an attribute by adding a constant value."""
+        # TODO: Not allowed to shift if there is intercept?
         self._check_type(value, (float, int))
         self._check_type(unit, (str, type(None)))
         self._check_type(reference_period, (ReferencePeriod, type(None)))
@@ -357,7 +453,8 @@ class LevelProfile(Base, ABC):
             self._level_shift += expr
 
     def scale(self, value: float | int) -> None:
-        """Modify the value (level*profile + intercept) of an attribute by multiplying with a constant value."""
+        """Modify the scale part of (scale * (level + level_shift) * profile + intercept) of an attribute by multiplying with a constant value."""
+        # TODO: Not allowed to scale if there is intercept?
         expr = ensure_expr(
             ConstantTimeVector(self._ensure_float(value), unit=None, is_max_level=False),
             is_level=True,
@@ -400,17 +497,43 @@ class LevelProfile(Base, ABC):
             profile=None,
         )
 
+    def _ensure_compatible_level_profile_combo(self, level: Expr | None, profile: Expr | None) -> None:
+        """Check that all profiles in leaf levels (in level) also exist in profile."""
+        if level is None or profile is None:
+            return
+
+        leaf_level_profiles = get_profile_exprs_from_leaf_levels(level)
+        leaf_profile_profiles = get_leaf_profiles(profile)
+
+        for p in leaf_level_profiles:
+            if p not in leaf_profile_profiles:
+                message = (
+                    f"Incompatible level/profile combination because all profiles in leaf levels (in level) does not exist in profile. "
+                    f"Profile expression {p} found in level {level} but not in profile."
+                )
+                raise ValueError(message)
+
     def _check_level_expr(self, expr: Expr) -> None:
-        assert expr.is_stock() == self._IS_STOCK
-        assert expr.is_flow() == self._IS_FLOW
-        assert expr.is_level() is True
-        assert expr.is_profile() is False
+        msg = f"{self} requires {expr} to be "
+        if expr.is_stock() != self._IS_STOCK:
+            raise ValueError(msg + f"is_stock={self._IS_STOCK}")
+        if expr.is_flow() != self._IS_FLOW:
+            raise ValueError(msg + f"is_flow={self._IS_STOCK}")
+        if expr.is_level() is False:
+            raise ValueError(msg + "is_level=True")
+        if expr.is_profile() is True:
+            raise ValueError(msg + "is_profile=False")
 
     def _check_profile_expr(self, expr: Expr) -> None:
-        assert expr.is_stock() is False
-        assert expr.is_flow() is False
-        assert expr.is_level() is False
-        assert expr.is_profile() is True
+        msg = f"{self} requires {expr} to be "
+        if expr.is_stock() is True:
+            raise ValueError(msg + "is_stock=False")
+        if expr.is_flow() is True:
+            raise ValueError(msg + "is_flow=False")
+        if expr.is_level() is True:
+            raise ValueError(msg + "is_level=False")
+        if expr.is_profile() is False:
+            raise ValueError(msg + "is_profile=True")
 
     def _ensure_profile_expr(
         self,
@@ -452,7 +575,8 @@ class LevelProfile(Base, ABC):
             is_max_level = self._IS_MAX_AND_ZERO_ONE
 
         self._check_type(level_expr, (Expr, type(None)))
-        assert isinstance(level_expr, Expr), "Attribute level Expr is None. Have you called Solver.solve yet?"
+        if not isinstance(level_expr, Expr):
+            raise ValueError("Attribute level Expr is None. Have you called Solver.solve yet?")
 
         level_value = get_level_value(
             expr=level_expr,
@@ -497,7 +621,8 @@ class LevelProfile(Base, ABC):
         level_expr = self.get_level()
 
         self._check_type(level_expr, (Expr, type(None)))
-        assert isinstance(level_expr, Expr), "Attribute level Expr is None. Have you called Solver.solve yet?"
+        if not isinstance(level_expr, Expr):
+            raise ValueError("Attribute level Expr is None. Have you called Solver.solve yet?")
 
         level_value = get_level_value(
             expr=level_expr,
@@ -593,121 +718,193 @@ class LevelProfile(Base, ABC):
 
 
 class FlowVolume(LevelProfile):
-    """Represents a flow volume attribute, indicating that the attribute is a flow variable."""
+    """
+    Abstract class representing a flow volume attribute, indicating that the attribute is a flow variable.
+
+    Subclass of LevelProfile. See LevelProfile for details.
+    """
 
     _IS_FLOW = True
 
 
 class Coefficient(LevelProfile):
-    """Represents a coefficient attribute, used as a base class for various coefficient types."""
+    """
+    Abstract class representing a coefficient attribute, used as a base class for various coefficient types.
+
+    Subclass of LevelProfile. See LevelProfile for details.
+    """
 
     pass
 
 
 class ArrowCoefficient(Coefficient):
-    """Represents an arrow coefficient attribute, used for efficiency, loss, and conversion coefficients."""
+    """
+    Abstract class representing an arrow coefficient attribute, used for efficiency, loss, and conversion coefficients.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     pass
 
 
-class ShaddowPrice(Coefficient):
-    """Represents a shadow price attribute, indicating that the attribute has unit might be negative."""
+class ShadowPrice(Coefficient):
+    """
+    Abstract class representing a shadow price attribute, indicating that the attribute has a unit and might be negative.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_UNITLESS = False
     _IS_NOT_NEGATIVE = False
 
 
 class ObjectiveCoefficient(Coefficient):
-    """Represents an objective coefficient attribute, indicating cost or revenue coefficients in the objective function."""
+    """
+    Abstract class representing an objective coefficient attribute, indicating cost or revenue coefficients in the objective function.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_UNITLESS = False
     _IS_NOT_NEGATIVE = False
 
 
-# concrete subclasses intended for final use
+# Concrete subclasses intended for final use
 
 
-class Price(ShaddowPrice):
-    """Represents a price attribute, inheriting from ShaddowPrice."""
+class Price(ShadowPrice):
+    """
+    Concrete class representing a price attribute, indicating the price of a commodity at a specific node.
+
+    Subclass of ShadowPrice < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
 
 
-class WaterValue(ShaddowPrice):
-    """Represents a water value attribute, inheriting from ShaddowPrice."""
+class WaterValue(ShadowPrice):
+    """
+    Concrete class representing a water value attribute, indicating the value of water in the system.
+
+    Subclass of ShadowPrice < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
 
 
 class Cost(ObjectiveCoefficient):
-    """Represents a cost attribute, indicating cost coefficients in the objective function."""
+    """
+    Concrete class representing a cost attribute, indicating cost coefficients in the objective function.
+
+    Subclass of ObjectiveCoefficient < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_COST = True
 
 
 class ReservePrice(ObjectiveCoefficient):
-    """Represents a reserve price attribute, indicating revenue coefficients in the objective function."""
+    """
+    Concrete class representing a reserve price attribute, indicating revenue coefficients in the objective function.
+
+    Subclass of ObjectiveCoefficient < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_COST = False
 
 
 class Elasticity(Coefficient):  # TODO: How do this work?
-    """Represents an elasticity coefficient attribute, indicating a unitless coefficient."""
+    """
+    Concrete class representing an elasticity coefficient attribute, indicating a unitless coefficient.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_UNITLESS = True
 
 
-class Proportion(Coefficient):  # TODO: How do this work?
-    """Represents a proportion coefficient attribute, indicating a unitless coefficient."""
+class Proportion(Coefficient):
+    """
+    Concrete class representing a proportion coefficient attribute, indicating a unitless coefficient between 0 and 1.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_UNITLESS = True
 
 
 class Hours(Coefficient):  # TODO: How do this work?
-    """Represents an hours coefficient attribute, indicating a time-related coefficient."""
+    """
+    Concrete class representing an hours coefficient attribute, indicating a time-related coefficient.
+
+    Subclass of Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
 
 
 class Efficiency(ArrowCoefficient):
-    """Represents an efficiency coefficient attribute, indicating a unitless coefficient."""
+    """
+    Concrete class representing an efficiency coefficient attribute, indicating a unitless coefficient.
+
+    Subclass of ArrowCoefficient < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_UNITLESS = True
 
 
-class Loss(ArrowCoefficient):
-    """Represents a loss coefficient attribute, indicating a unitless coefficient."""
+class Loss(ArrowCoefficient):  # TODO: Make a loss for storage that is percentage per time
+    """
+    Concrete class representing a loss coefficient attribute, indicating a unitless coefficient.
+
+    Subclass of ArrowCoefficient < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_UNITLESS = True
 
 
 class Conversion(ArrowCoefficient):
-    """Represents a conversion coefficient attribute, used for conversion factors in the model."""
+    """
+    Concrete class representing a conversion coefficient attribute, used for conversion factors in the model.
+
+    Subclass of ArrowCoefficient < Coefficient < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
 
 
 class AvgFlowVolume(FlowVolume):
-    """Represents an average flow volume attribute, indicating a flow variable with average values."""
+    """
+    Concrete class representing an average flow volume attribute, indicating a flow variable with average values.
+
+    Subclass of FlowVolume < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
 
 
 class MaxFlowVolume(FlowVolume):
-    """Represents a maximum flow volume attribute, indicating a flow variable with maximum values."""
+    """
+    Concrete class representing a maximum flow volume attribute, indicating a flow variable with maximum values.
+
+    Subclass of FlowVolume < LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_MAX_AND_ZERO_ONE = True
 
 
 class StockVolume(LevelProfile):
-    """Represents a stock volume attribute, indicating a stock variable with maximum values."""
+    """
+    Concrete class representing a stock volume attribute, indicating a stock variable with maximum values.
+
+    Subclass of LevelProfile. See LevelProfile for details.
+    """
 
     _IS_ABSTRACT = False
     _IS_STOCK = True
