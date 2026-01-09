@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
       
       
 
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#overview" class="md-skip">
+        <a href="#macro-rendering-error" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Macro Rendering Error
             
           </span>
         </div>
@@ -246,24 +246,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -271,7 +253,7 @@
   <span class="md-ellipsis">
     
   
-    Overview
+    Macro Rendering Error
   
 
     
@@ -280,86 +262,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#core-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Components
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Components">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#high-level-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-level components
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#low-level-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Low-level components
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#interfaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Interfaces
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -392,6 +294,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tech_details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro Rendering Error
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -411,75 +340,6 @@
   
     
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#core-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Components
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Components">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#high-level-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-level components
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#low-level-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Low-level components
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#interfaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Interfaces
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
   
 </nav>
                   </div>
@@ -507,31 +367,21 @@
   
 
 
-<h1 id="overview">Overview</h1>
-<p>FRAM core package is the central package in <a href="https://nve.github.io/fram/">FRAM</a> that contains functionality for data transformation and definitions of interfaces. </p>
-<p>Power market models access data through FRAM <strong>core model</strong> - a model object that holds the data. Core model uses generic data structures and different abstraction levels to perform advanced data manipulations like aggregation, dissaggregation, handling time resolution, unit conversion etc.</p>
-<p>To install only core package, run <code>pip install fram-core</code>. But we recommend that you rather start by installing our <a href="https://github.com/NVE/fram-demo">simple demo</a>.</p>
-<p><img alt="FRAM core" src="img/framcore.svg" /></p>
-<h2 id="core-model">Core model</h2>
-<p>The core model object is populated with the data from the database using Populator() in <a href="https://nve.github.io/fram-data/">framdata</a> package. Core model components hold data about different components in the power system.</p>
-<p>Core model represents data as expressions and uses "lazy" approach, i.e. the calculations are not done immediately but are postponed. This approach gives a much better performance when processing large data quantities. Data processing expressions are saved inside the components of the core model.  </p>
-<h2 id="components">Components</h2>
-<p>Core model contains <strong>high-level</strong> and <strong>low-level</strong> components.</p>
-<h3 id="high-level-components">High-level components</h3>
-<p>High-level components are "recognizable" components such as thermal power plants, consumers, transmission lines. They can be "decomposed" into low-level components.</p>
-<h3 id="low-level-components">Low-level components</h3>
-<p>Low-level components are the most basic components that can be used to represent the high-level components - <strong>node</strong> and <strong>flow</strong>. They can describe anything in the power market model. </p>
-<p>The advantage of decomposing high-level components into flow and node is that you can create generic algorithms with minimal code to manipulate the data and avoid duplicating code for similar operations. For example, you can write one generic function to find all hydropower plants or storage systems or to calculate yearly production, demand, export or import. </p>
-<h2 id="interfaces">Interfaces</h2>
-<p>FRAM core package contains definition of interfaces necessary to run FRAM.</p>
-<ul>
-<li><strong>Populator</strong></li>
-</ul>
-<p>Abstract class that defines methods that must be implemented in a populator. <a href="https://nve.github.io/fram-data/">FRAM data</a> package contains our own implementation of populator that supports our database format. If you want to use your own database, you can write your own implementation of populator based on this interface.</p>
-<ul>
-<li><strong>Solver</strong></li>
-</ul>
-<p>Abstract class that defines methods that must be implemented in a model solver. <a href="https://nve.github.io/fram-jules/">FRAM JulES</a> package contains our implementation of a solver for JulES power market model. Each market model is connected to FRAM using its own solver implementation. </p>
+<h1 id="macro-rendering-error"><em>Macro Rendering Error</em></h1>
+<p><em>File</em>: <code>index.md</code></p>
+<p><em>UndefinedError</em>: 'HL' is undefined</p>
+<pre><code>Traceback (most recent call last):
+  File &quot;/home/runner/work/fram-core/fram-core/.venv/lib/python3.12/site-packages/mkdocs_macros/plugin.py&quot;, line 703, in render
+    return md_template.render(**page_variables)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/home/runner/work/fram-core/fram-core/.venv/lib/python3.12/site-packages/jinja2/environment.py&quot;, line 1295, in render
+    self.environment.handle_exception()
+  File &quot;/home/runner/work/fram-core/fram-core/.venv/lib/python3.12/site-packages/jinja2/environment.py&quot;, line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File &quot;&lt;template&gt;&quot;, line 26, in top-level template code
+jinja2.exceptions.UndefinedError: 'HL' is undefined
+
+</code></pre>
 
 
 
@@ -609,10 +459,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tracking", "search.highlight", "search.share", "search.suggest"], "search": "assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tracking", "search.highlight", "search.share", "search.suggest"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
