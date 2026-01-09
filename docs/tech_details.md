@@ -25,7 +25,7 @@ Each of these concepts are described below.
 
 We have high-level and low-level components in FRAM core. Result attributes are initialized in the high-level components. When they are transferred to low-level components, and the results are set by a model like JulES, the results will also appear in the high-level components. 
 
-See also [FRAM documentation]({{ framlinks.fram-HL-components }}) for more information about these components.  
+See also [FRAM documentation]({{ framlinks.components }}) for more information about these components.  
 
 #### High-level components 
 High-level components, such as a hydropower module, can be decomposed into low-level components like flows and nodes. The high-level description lets analysts work with recognizable domain objects, while the low-level descriptions enable generic algorithms that minimize code duplication and simplify data manipulation.  

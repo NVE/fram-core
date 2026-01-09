@@ -60,7 +60,7 @@ extra:
   framlinks:
     fram: https://nve.github.io/fram/
     fram-why-core: https://nve.github.io/fram/why_core_model/
-    fram-HL-components: https://nve.github.io/fram/why_components/
+    components: https://nve.github.io/fram/why_components/
     data: https://nve.github.io/fram-data/
     demo: https://github.com/NVE/fram-demo
     julesAPI: https://nve.github.io/fram-jules/

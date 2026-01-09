@@ -23,7 +23,7 @@ High-level components are "recognizable" components such as thermal power plants
 Low-level components are the most basic components that can be used to represent the high-level components - **node** and **flow**. They can describe anything in the power market model. 
 
 ### Conversion between high-level and low-level components
-The advantage of decomposing high-level components into flow and node is that you can create generic algorithms with minimal code to manipulate the data and avoid duplicating code for similar operations. For example, you can write one generic function to find all hydropower plants or storage systems or to calculate yearly production, demand, export or import. Learn more about high-level and low-level components in the [FRAM documentation]({{ framlinks.fram-HL-components }})  on these components.
+The advantage of decomposing high-level components into flow and node is that you can create generic algorithms with minimal code to manipulate the data and avoid duplicating code for similar operations. For example, you can write one generic function to find all hydropower plants or storage systems or to calculate yearly production, demand, export or import. Learn more about high-level and low-level components in the [FRAM documentation]({{ framlinks.components }})  on these components.
 
 ## Interfaces
 FRAM core package contains definition of interfaces necessary to run FRAM. See also [more technical details](tech_details.md) for information about interfaces, the Model object and other objects in FRAM core.
