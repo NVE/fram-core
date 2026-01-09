@@ -26,6 +26,7 @@ _SUPPORTED_UNITS = {
     "year": year,
     "y": year,
     "watt": watt,
+    "joule": watt * second,
     "g": gram,
     "gram": gram,
     "kg": kilo * gram,
@@ -34,6 +35,7 @@ _SUPPORTED_UNITS = {
     "meter": meter,
     "m": meter,
     "m3": meter**3,
+    "l": meter**3 / 1000,
     "Mm3": mega * meter**3,
     "m3/s": meter**3 / second,
     "kilo": kilo,
@@ -44,6 +46,10 @@ _SUPPORTED_UNITS = {
     "MWh": mega * watt * hour,
     "GWh": giga * watt * hour,
     "TWh": tera * watt * hour,
+    "J": watt * second,
+    "kJ": kilo * watt * second,
+    "MJ": mega * watt * second,
+    "GJ": giga * watt * second,
     "kW": kilo * watt,
     "MW": mega * watt,
     "GW": giga * watt,
@@ -61,6 +67,7 @@ _FASTPATH_CONVERSION_FACTORS = {
     ("GWh/year", "MW"): 0.11407955544967756,
     ("Mm3/year", "m3/s"): 0.03168876540268821,
     ("t/MWh", "t/GWh"): 1000.0,
+    ("MWh", "GJ"): 3.6,
 }
 
 _FASTPATH_INCOMPATIBLE_CONVERSIONS = {

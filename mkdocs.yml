@@ -28,6 +28,7 @@ theme:
 nav:
   - index.md
   - reference.md
+  - tech_details.md
 
 markdown_extensions:
 - tables
@@ -58,6 +59,9 @@ extra:
     provider: mike
   framlinks:
     fram: https://nve.github.io/fram/
+    fram-why-core: https://nve.github.io/fram/why_core_model/
+    fram-HL-components: https://nve.github.io/fram/why_components/
     data: https://nve.github.io/fram-data/
     demo: https://github.com/NVE/fram-demo
     julesAPI: https://nve.github.io/fram-jules/
+    nve: https://www.nve.no/english/
