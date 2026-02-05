@@ -164,7 +164,7 @@ def _update_constants_with_units(
         if isinstance(obj, TimeVector):
             obj: TimeVector
 
-            # added to support any_expr * ConstantTimeVector
+            # added to support any_expr * ConstantTimeVector. We added this to support LevelProfile.scale()
             times_constant_case = (not is_profile) and isinstance(obj, ConstantTimeVector)
 
             if is_level or times_constant_case:

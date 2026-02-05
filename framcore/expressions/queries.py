@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,7 +14,7 @@ from framcore.expressions._get_constant_from_expr import _get_constant_from_expr
 from framcore.expressions._utils import _load_model_and_create_model_db
 from framcore.expressions.units import get_unit_conversion_factor
 from framcore.querydbs import QueryDB
-from framcore.timeindexes import FixedFrequencyTimeIndex, SinglePeriodTimeIndex, TimeIndex
+from framcore.timeindexes import FixedFrequencyTimeIndex, ProfileTimeIndex, SinglePeriodTimeIndex, TimeIndex, WeeklyIndex
 from framcore.timevectors import TimeVector
 
 if TYPE_CHECKING:
@@ -308,7 +309,7 @@ def _recursively_update_timeindexes(timeindexes: set[TimeIndex], db: QueryDB, ex
         _recursively_update_timeindexes(timeindexes, db, arg)
 
 
-def _get_level_value_from_timevector(  # noqa: C901
+def _get_level_value_from_timevector(  # noqa: C901, PLR0915
     timevector: TimeVector,
     db: QueryDB,
     target_unit: str | None,
@@ -331,8 +332,8 @@ def _get_level_value_from_timevector(  # noqa: C901
     from_unit = timevector.get_unit()
 
     starttime = data_dim.get_start_time()  # OPPGAVE endrer ConstantTimeIndex-API?
-    timedelta = data_dim.get_period_duration()  # OPPGAVE endrer ConstantTimeIndex-API?
-    scalar = timeindex.get_period_average(values, starttime, timedelta, data_dim.is_52_week_years())
+    timedelta_ = data_dim.get_period_duration()  # OPPGAVE endrer ConstantTimeIndex-API?
+    scalar = timeindex.get_period_average(values, starttime, timedelta_, data_dim.is_52_week_years())
 
     if from_unit is not None and target_unit is not None:
         scalar *= get_unit_conversion_factor(from_unit, target_unit)
@@ -359,16 +360,59 @@ def _get_level_value_from_timevector(  # noqa: C901
                 # assert tv_ref_period_mean.size == 1
                 # assert tv_ref_period_mean[0] == 1
                 assert profile_expr, f"Profile Expr is None for TimeVector {timevector} when it should exist"
-                tv_target_ref_period_mean = get_profile_vector(
+
+                start_year = min(tv_ref_period.get_start_year(), target_ref_period.get_start_year())
+                end_year_1 = tv_ref_period.get_start_year() + tv_ref_period.get_num_years() - 1
+                end_year_2 = target_ref_period.get_start_year() + target_ref_period.get_num_years() - 1
+                end_year = max(end_year_1, end_year_2)
+                num_years = end_year - start_year + 1
+
+                pti = ProfileTimeIndex(
+                    start_year=start_year,
+                    num_years=num_years,
+                    period_duration=timedelta(weeks=1),
+                    is_52_week_years=scen_dim.is_52_week_years(),
+                )
+
+                profile_vector = get_profile_vector(
                     profile_expr,
                     db,
                     data_dim,
-                    scen_dim.copy_as_reference_period(target_ref_period),
+                    pti,
                     is_zero_one=False,
                     is_float32=is_float32,
                 )
-                assert tv_target_ref_period_mean.size == 1
-                avg_level = tv_target_ref_period_mean[0] * avg_level
+
+                assert np.isclose(profile_vector.mean(), 1.0)
+
+                ref_period_index = WeeklyIndex(
+                    start_year=tv_ref_period.get_start_year(),
+                    num_years=tv_ref_period.get_num_years(),
+                    is_52_week_years=scen_dim.is_52_week_years(),
+                )
+
+                avg_ref_period = pti.get_period_average(
+                    vector=profile_vector,
+                    start_time=ref_period_index.get_start_time(),
+                    duration=ref_period_index.total_duration(),
+                    is_52_week_years=ref_period_index.is_52_week_years(),
+                )
+
+                target_ref_period_index = WeeklyIndex(
+                    start_year=target_ref_period.get_start_year(),
+                    num_years=target_ref_period.get_num_years(),
+                    is_52_week_years=scen_dim.is_52_week_years(),
+                )
+
+                avg_target_ref_period = pti.get_period_average(
+                    vector=profile_vector,
+                    start_time=target_ref_period_index.get_start_time(),
+                    duration=target_ref_period_index.total_duration(),
+                    is_52_week_years=target_ref_period_index.is_52_week_years(),
+                )
+
+                scale = avg_target_ref_period / avg_ref_period
+                avg_level = scale * avg_level
             return avg_level
         # timevector fra max til avg
         max_level = scalar
