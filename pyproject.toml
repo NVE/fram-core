@@ -1,6 +1,6 @@
 [project]
 name = "fram-core"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = [
     {name = "The Norwegian Water Resources and Energy Directorate", email = "fram@nve.no"}

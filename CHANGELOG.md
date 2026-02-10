@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.1.2] - 2026-02-10
+- Removed `assert` in `framcore.queries` that is too strict and should be added somewhere else.
+
 ## [0.1.1] - 2026-02-05
 
 ### Fixed

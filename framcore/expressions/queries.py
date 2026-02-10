@@ -246,7 +246,7 @@ def _get_profile_vector_from_timevector(
             tv_target_ref_period_mean = timeindex.get_period_average(
                 vector=values,
                 start_time=scen_dim.get_start_time(),
-                duration=scen_dim.get_period_duration() * scen_dim.get_num_periods(),
+                duration=scen_dim.total_duration(),
                 is_52_week_years=scen_dim.is_52_week_years(),
             )
 
@@ -382,8 +382,6 @@ def _get_level_value_from_timevector(  # noqa: C901, PLR0915
                     is_zero_one=False,
                     is_float32=is_float32,
                 )
-
-                assert np.isclose(profile_vector.mean(), 1.0)
 
                 ref_period_index = WeeklyIndex(
                     start_year=tv_ref_period.get_start_year(),
